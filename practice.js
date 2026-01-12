@@ -3,7 +3,7 @@
 import puppeteer from "puppeteer";
 import states from "us-state-converter";
 
-var stateInitials = states.abbr("Illinois");
+var stateInitials = states();
 console.log(stateInitials);
 
 /*const browser = await puppeteer.launch({

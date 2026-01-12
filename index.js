@@ -63,53 +63,73 @@ app.post("/solicitacao-estadual", (req, res) => {
     const emailTB = "info@tbfinancialservice.com";
 
 
-    //Partner Address Section - Break down the partner information into individual parts
-    const partnerName = data["partnerName"];
-    const partnerNameParts = partnerName.split(" ");
-    const partnerNamePartsLength = partnerNameParts.length;
-    const partnerFirstName = partnerNameParts[0];
-    const partnerLastName = partnerNameParts[partnerNamePartsLength - 1];
-    const partnerNameInitial = partnerFirstName.slice(0, 1);
-    //Partner Name Section
-    var partnerAddress;
-    var partnerAddressParts;
-    var partnerStateAndZip;
-    var partnerStateAndZipLength;
+    //Partner Name Section - Break down the partner information into individual parts
+    const partners = data["partnerName"];
+    const partnerNames = partners.split("\n");
+    const numberOfPartners = partnerNames.length;
+    var partnerFullNameList = [];
+    var partnerFirstNameList =[];
+    var partnerLastNameList = [];
+    var partnerNameInitialList = [];
+    for (var i = 0; i < numberOfPartners; i++) {
+        partnerFullNameList = partnerNames[i].split(" "); //Split parter i's first and last name
+        partnerFirstNameList.push(partnerFullNameList[0]); //Store partner i's first name in the i-th position of the first name array
+        partnerLastNameList.push(partnerFullNameList[partnerFullNameList.length - 1]); //Store partner i's last name in the i-th position of the last name array
+        partnerNameInitialList.push(partnerFirstNameList[i].slice(0, 1));
+    }
+    //Partner Address Section
+    var partnerAddresses;
+    var partnerAddressesList = [];
+    var partnerAddress = [];
+    var partnerStateAndZip = [];
     const partnerCountry = "USA";
+    var partnerAddressPart;
     var partnerState;
     var partnerZip;
     var partnerCity;
+    var partnerAddressList = [];
+    var partnerCityList = [];
+    var partnerStateList = [];
+    var partnerZipList = [];
     if (data["samePartnerAddress"] === "Yes") {
-        partnerAddress = businessAddress;
-        partnerState = businessState;
-        partnerZip = zip;
-        partnerCity = city;
+        partnerAddressList.push(address); // Use the split 'address' variable, not the full string
+        partnerCityList.push(city);
+        partnerStateList.push(businessState);
+        partnerZipList.push(zip);
     }
     else {
-        partnerAddress = data["differentPartnerAddress"];
-        partnerAddressParts = partnerAddress.split(", ");
-        partnerStateAndZip = partnerAddressParts[2].split(" ");
-        partnerStateAndZipLength = partnerStateAndZip.length;
-        if (partnerStateAndZipLength == 3) {
-            partnerState = partnerStateAndZip[0] + " " + partnerStateAndZip[1];
-            partnerZip = partnerStateAndZip[2];
+        partnerAddresses = data["differentPartnerAddress"]; //Stores the string that has all partner addresses
+        partnerAddressesList = partnerAddresses.split("\n"); //Contains all partner addresses in an array
+        for (var i = 0; i < numberOfPartners; i++) {
+            partnerAddress = partnerAddressesList[i].split(", "); // Stores each part of the i-th address
+            partnerAddressPart = partnerAddress[0];
+            partnerCity = partnerAddress[1]; //Stores the city for the current partner
+            partnerStateAndZip = partnerAddress[2].split(" ");
+            if (partnerStateAndZip.length == 3) {
+                partnerState = partnerStateAndZip[0] + " " + partnerStateAndZip[1]; //Store state for current partner
+                partnerZip = partnerStateAndZip[2]; //Stores ZIP for current partner
+            }
+            else {
+                partnerState = partnerStateAndZip[0]; //Store state for current partner
+                partnerZip = partnerStateAndZip[1]; //Store ZIP for current partner
+            }
+            partnerAddressList.push(partnerAddressPart);
+            partnerCityList.push(partnerCity)
+            partnerStateList.push(partnerState);
+            partnerZipList.push(partnerZip);
         }
-        else {
-            partnerState = partnerStateAndZip[0];
-            partnerZip = partnerStateAndZip[1];
-        }
-        partnerCity = partnerAddressParts[1];
     }
 
     
     //All information that needs to be used on SunBiz is correct. Only need some info which was not available
-    console.log(`Month: ${month}, Day: ${day}, Year: ${year}\nBusiness Type: ${businessType}\nBusiness Name: ${businessName}\nBusiness Address: ${businessAddress}\n\n`);
+    /*console.log(`Month: ${month}, Day: ${day}, Year: ${year}\nBusiness Type: ${businessType}\nBusiness Name: ${businessName}\nBusiness Address: ${businessAddress}\n\n`);
     console.log(`Here comes the business address in parts:\Address: ${address}, City: ${city}, State: ${businessState}, Zip Code: ${zip}, Country: ${country}\n\n`);
     console.log(`Here comes the owner name information in parts:\nfirst name: ${ownerFirstName}, last name: ${ownerLastName}, initial: ${ownerNameInitial}, signature: ${ownerSignature}\n`);
     console.log(`TB Email: ${emailTB}\n`);
     console.log(`Here comes the partner name information in parts:\nfirst name: ${partnerFirstName}, last name: ${partnerLastName}, initial: ${partnerNameInitial}\n`);
     console.log(`Here comes the partner address in parts:\nCity: ${partnerCity}, State: ${partnerState}, Zip Code: ${partnerZip}, Country: ${partnerCountry}\n\n`);
-    console.log("Does partner have the same address?" + data["samePartnerAddress"]);
+    console.log("Does partner have the same address?" + data["samePartnerAddress"]);*/
+    console.log(`Testing all the partner info: ${partnerAddressList[0]}, and ${partnerFirstNameList[0]}`);
 
     //Notify the server the response was successfully received
     res.status(200).send("HTTP request sucessfully received from Pipefy");
@@ -137,12 +157,14 @@ app.post("/solicitacao-estadual", (req, res) => {
             signature: ownerSignature
         },
         partner: {
-            firstName: partnerFirstName,
-            lastName: partnerLastName,
-            initial: partnerNameInitial,
-            city: partnerCity,
-            state: partnerState,
-            zip: partnerZip,
+            numberOfPartners: numberOfPartners,
+            firstNameList: partnerFirstNameList,
+            lastNameList: partnerLastNameList,
+            initialList: partnerNameInitialList,
+            addressList: partnerAddressList,
+            cityList: partnerCityList,
+            stateList: partnerStateList,
+            zipList: partnerZipList,
             country: partnerCountry
         },
         general: {
