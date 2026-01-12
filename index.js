@@ -37,6 +37,7 @@ app.post("/solicitacao-estadual", (req, res) => {
     var businessState;
     var zip;
     const city = addressParts[1];
+    const address = addressParts[0];
     //If the state has more than one word, then the first two words are the state name. If it's just one word, then it's just the first word
     if (stateAndZipLength == 3) {
         businessState = stateAndZip[0] + " " + stateAndZip[1];
@@ -103,7 +104,7 @@ app.post("/solicitacao-estadual", (req, res) => {
     
     //All information that needs to be used on SunBiz is correct. Only need some info which was not available
     console.log(`Month: ${month}, Day: ${day}, Year: ${year}\nBusiness Type: ${businessType}\nBusiness Name: ${businessName}\nBusiness Address: ${businessAddress}\n\n`);
-    console.log(`Here comes the business address in parts:\nCity: ${city}, State: ${businessState}, Zip Code: ${zip}, Country: ${country}\n\n`);
+    console.log(`Here comes the business address in parts:\Address: ${address}, City: ${city}, State: ${businessState}, Zip Code: ${zip}, Country: ${country}\n\n`);
     console.log(`Here comes the owner name information in parts:\nfirst name: ${ownerFirstName}, last name: ${ownerLastName}, initial: ${ownerNameInitial}, signature: ${ownerSignature}\n`);
     console.log(`TB Email: ${emailTB}\n`);
     console.log(`Here comes the partner name information in parts:\nfirst name: ${partnerFirstName}, last name: ${partnerLastName}, initial: ${partnerNameInitial}\n`);
@@ -123,7 +124,7 @@ app.post("/solicitacao-estadual", (req, res) => {
         business: {
             name: businessName,
             type: businessType,
-            address: businessAddress, // The full string
+            address: address, // street name, building #, and suite #
             city: city,
             state: businessState,
             zip: zip,

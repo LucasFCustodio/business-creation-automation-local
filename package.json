@@ -13,6 +13,7 @@
     "body-parser": "^2.2.2",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "puppeteer": "^24.34.0"
+    "puppeteer": "^24.34.0",
+    "us-state-converter": "^1.0.8"
   }
 }
