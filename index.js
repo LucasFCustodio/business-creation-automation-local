@@ -2,6 +2,8 @@ import express from "express";
 import 'dotenv/config';
 import { fillSunBizForm } from "./sunbizBot.js";
 
+import { exec } from 'child_process';
+
 const app = express();
 const PORT = 3000;
 
@@ -11,7 +13,7 @@ app.get("/", (req, res) => {
     res.send("The port is working")
 });
 
-app.post("/solicitacao-estadual", (req, res) => {
+app.post("/solicitacao-estadual", async (req, res) => {
     console.log("Raw Data received from Pipefy: " + req.body);
     const data = req.body;
 
@@ -132,7 +134,7 @@ app.post("/solicitacao-estadual", (req, res) => {
     console.log(`Testing all the partner info: ${partnerAddressList[0]}, and ${partnerFirstNameList[0]}`);
 
     //Notify the server the response was successfully received
-    res.status(200).send("HTTP request sucessfully received from Pipefy");
+    //res.status(200).send("HTTP request sucessfully received from Pipefy");
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
@@ -171,7 +173,32 @@ app.post("/solicitacao-estadual", (req, res) => {
             email: emailTB
         }
     };
+
+    const curlCommand = `curl -X POST https://api.pipefy.com/graphql \
+      -H "Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJQaXBlZnkiLCJpYXQiOjE3Njk0MzQ1NDgsImp0aSI6Ijk5YTNiNTA0LWFmZmEtNDc5OS1iZDczLTgxYmY5NWRiNTE3MCIsInN1YiI6MzA3NDE2NzcwLCJ1c2VyX3R5cGUiOiJhdXRoZW50aWNhdGVkIn0.UUb8I1w6jHaXM2qYXsyvSbM2bURtsQIpvQZkeIK71WAp_jMB-POZatIopbyjxvaiy-Nvm4uFJj5wT-9kKrgoNA" \
+      -H "Content-Type: application/json" \
+      -H "Accept: application/json" \
+      --data '{"query":"mutation { moveCardToPhase(input: { card_id: 1287993879, destination_phase_id: 338150068 }) { card { current_phase { id } } } }"}'`;
     
+    await exec(curlCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.error('exec error:', error);
+        return;
+      }
+    
+      if (stderr) {
+        console.error('stderr:', stderr);
+        return;
+      }
+    
+      try {
+        const data = JSON.parse(stdout);
+        console.log('New phase ID:', data.data.moveCardToPhase.card.current_phase.id);
+      } catch (e) {
+        console.error('Failed to parse JSON:', stdout);
+      }
+    });
+
     fillSunBizForm(completeData);
 })
 

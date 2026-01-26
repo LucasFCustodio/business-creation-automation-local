@@ -7,11 +7,15 @@ export async function fillSunBizForm(data) {
 
     const browser = await puppeteer.launch({
         headless: false,
-        slowMo: 10
+        slowMo: 30,
+        ignoreDefaultArgs: ["--enable-automation"],
+        
     });
     const page = await browser.newPage();
 
     if(data.business.type === "LLC") {
+        await page.setViewport({ width: 1920, height: 1080 });
+
         //Navigate page to the URL - https://efile.sunbiz.org/llc_file.html
         await page.goto('https://efile.sunbiz.org/llc_file.html');
 
@@ -91,10 +95,27 @@ export async function fillSunBizForm(data) {
             await page.click('input[name="submit"]')
         ]);
 
-        //Press enter on the popup - DOES NOT WORK YET
+        //Press enter on the popup - 
         await page.keyboard.press('Enter');
 
+        /*
+        //Take Screenshot
+        await page.screenshot({ path: 'screenshots/result.png' });
+
+        //Click continue to get out of the Document Tracking #
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.click('input[name="submit"]')
+        ]);
+
+        //Click on Credit Card Payment Button
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.click('input[value="Credit Card Payment"]')
+        ]);*/
+
         //Take a screenshot of the result, and store it in the
+
     }
 
     console.log("The Bot worked!");
