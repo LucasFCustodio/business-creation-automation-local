@@ -1,17 +1,28 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
 import puppeteer from "puppeteer";
 import states from "us-state-converter";
+import axios from "axios";
 
 export async function fillSunBizForm(data) {
     console.log("Data has been received: " + data);
 
     const browser = await puppeteer.launch({
         headless: false,
-        slowMo: 30,
-        ignoreDefaultArgs: ["--enable-automation"],
-        
+        slowMo: 5,
+        args: [
+            '--disable-features=AutofillAddressEnabled',
+            '--disable-offer-store-unmasked-wallet-cards',
+            '--disable-autofill-keyboard-accessory-view'
+        ]
     });
     const page = await browser.newPage();
+
+    page.on('dialog', async dialog => {
+        console.log("--------------------------------");
+        console.log(`DIALOG DETECTED: ${dialog.message()}`);
+        console.log("--------------------------------");
+        await dialog.accept(); // Press "Enter" / Click "OK"
+    });
 
     if(data.business.type === "LLC") {
         await page.setViewport({ width: 1920, height: 1080 });
@@ -21,7 +32,10 @@ export async function fillSunBizForm(data) {
 
         //Check the disclaimer textbox, and click on 'start new filing'
         await page.click('#disclaimer_read');
-        await page.click('input[value="Start New Filing"]');
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.click('input[value="Start New Filing"]')
+        ]);
 
         //Fill in for the date
         await page.type('#eff_date_mm', data.effectiveDate.month);
@@ -80,9 +94,8 @@ export async function fillSunBizForm(data) {
             await page.type(`#off${i + 1}_name_cntry`, data.partner.country);
         }
 
-
-
-        //When done filling all the information, click on continue to go to the next page
+        //Wen done filling all the information, click on continue to go to the next page
+        //Submit button for the form page still - #1
         await Promise.all([
             //Bot must wait until the network is idle
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
@@ -90,19 +103,23 @@ export async function fillSunBizForm(data) {
         ]);
 
         //Click continue again to get out of the review page
+        //Submit button for the Filing Information Page - #2
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
             await page.click('input[name="submit"]')
         ]);
 
-        //Press enter on the popup - 
+        //Popup handling happens automatically with the 'dialog' event listener defined earlier
         await page.keyboard.press('Enter');
 
-        /*
-        //Take Screenshot
+        //Take screenshot of the Online Filing Information, which contains the tracking #
+        /*await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.screenshot({ path: 'screenshots/result.png' })
+        ]);*/
         await page.screenshot({ path: 'screenshots/result.png' });
 
-        //Click continue to get out of the Document Tracking #
+        //Click continue to get out of the Online Filinf Information page - #3
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
             await page.click('input[name="submit"]')
@@ -112,11 +129,48 @@ export async function fillSunBizForm(data) {
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
             await page.click('input[value="Credit Card Payment"]')
-        ]);*/
+        ]);
 
-        //Take a screenshot of the result, and store it in the
+        await Promise.all([
+            await page.type('#CustomerInfo_FirstName', data.owner.firstName)
+        ]);
 
+        //Customer Information Section
+        await page.type('#CustomerInfo_LastName', data.owner.lastName);
+        await page.type('#CustomerInfo_Address1', data.business.address);
+        await page.type('#CustomerInfo_City', data.business.city);
+        await page.select('#CustomerInfo_State', 'FL');
+        await page.type('#CustomerInfo_Zip', data.business.zip);
+        await page.type('#Phone', data.owner.phoneNumber);
+        await page.type('#Email', data.owner.email);
+        await page.click('#bntNextCustomerInfo');
+
+        //Credit card filling section
+        console.log("It left the Promise.all!");
+        await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
+        await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
+        await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
+        await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
+        await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV);
+        await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME);
+
+        //await browser.close();
+
+        console.log("The Bot worked - inside if!");
+
+        return "success";
     }
 
     console.log("The Bot worked!");
+}
+
+export async function moveCardToPhase(cardID) {
+    axios.get('https://hook.us2.make.com/9vre3y1ew9bk44wsfudg35g9xo3ena6a', {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            params: {
+                'cardID': cardID
+            }
+        })
 }

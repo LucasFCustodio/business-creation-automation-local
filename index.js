@@ -1,6 +1,6 @@
 import express from "express";
 import 'dotenv/config';
-import { fillSunBizForm } from "./sunbizBot.js";
+import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
 
 import { exec } from 'child_process';
 
@@ -16,6 +16,9 @@ app.get("/", (req, res) => {
 app.post("/solicitacao-estadual", async (req, res) => {
     console.log("Raw Data received from Pipefy: " + req.body);
     const data = req.body;
+
+    //Card ID
+    const cardID = data["cardID"];
 
     //Date Section - Break down date into individual parts
     const effectiveDate = data["effectiveDate"];
@@ -59,6 +62,8 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const ownerLastName = ownerNameParts[0];
     const ownerNameInitial = ownerFirstName.slice(0, 1);
     const ownerSignature = ownerFirstName + " " + ownerLastName;
+    const ownerPhoneNumber = data["phoneNumber"];
+    const ownerEmail = data["email"];
 
 
     //Our email
@@ -131,7 +136,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     console.log(`Here comes the partner name information in parts:\nfirst name: ${partnerFirstName}, last name: ${partnerLastName}, initial: ${partnerNameInitial}\n`);
     console.log(`Here comes the partner address in parts:\nCity: ${partnerCity}, State: ${partnerState}, Zip Code: ${partnerZip}, Country: ${partnerCountry}\n\n`);
     console.log("Does partner have the same address?" + data["samePartnerAddress"]);*/
-    console.log(`Testing all the partner info: ${partnerAddressList[0]}, and ${partnerFirstNameList[0]}`);
+
 
     //Notify the server the response was successfully received
     //res.status(200).send("HTTP request sucessfully received from Pipefy");
@@ -156,7 +161,9 @@ app.post("/solicitacao-estadual", async (req, res) => {
             firstName: ownerFirstName,
             lastName: ownerLastName,
             initial: ownerNameInitial,
-            signature: ownerSignature
+            signature: ownerSignature,
+            phoneNumber: ownerPhoneNumber,
+            email: ownerEmail
         },
         partner: {
             numberOfPartners: numberOfPartners,
@@ -174,32 +181,10 @@ app.post("/solicitacao-estadual", async (req, res) => {
         }
     };
 
-    const curlCommand = `curl -X POST https://api.pipefy.com/graphql \
-      -H "Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJQaXBlZnkiLCJpYXQiOjE3Njk0MzQ1NDgsImp0aSI6Ijk5YTNiNTA0LWFmZmEtNDc5OS1iZDczLTgxYmY5NWRiNTE3MCIsInN1YiI6MzA3NDE2NzcwLCJ1c2VyX3R5cGUiOiJhdXRoZW50aWNhdGVkIn0.UUb8I1w6jHaXM2qYXsyvSbM2bURtsQIpvQZkeIK71WAp_jMB-POZatIopbyjxvaiy-Nvm4uFJj5wT-9kKrgoNA" \
-      -H "Content-Type: application/json" \
-      -H "Accept: application/json" \
-      --data '{"query":"mutation { moveCardToPhase(input: { card_id: 1287993879, destination_phase_id: 338150068 }) { card { current_phase { id } } } }"}'`;
-    
-    await exec(curlCommand, (error, stdout, stderr) => {
-      if (error) {
-        console.error('exec error:', error);
-        return;
-      }
-    
-      if (stderr) {
-        console.error('stderr:', stderr);
-        return;
-      }
-    
-      try {
-        const data = JSON.parse(stdout);
-        console.log('New phase ID:', data.data.moveCardToPhase.card.current_phase.id);
-      } catch (e) {
-        console.error('Failed to parse JSON:', stdout);
-      }
-    });
-
-    fillSunBizForm(completeData);
+    //Fill out the form, and if it returns a 'success', then call the moveCardToPhase which activates the Make automatioion to move the card to the next phase - WILL CHANGE TO A DIFFERENT PROGRAM
+    if (await fillSunBizForm(completeData) === "success") {
+        console.log("Form completed successfully.");
+    }
 })
 
 app.listen(PORT, () => {

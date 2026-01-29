@@ -1,19 +1,9 @@
-//This file is for practicing to use Puppeteer, so I don't have to practice in the main file
-
-import puppeteer from "puppeteer";
-import states from "us-state-converter";
-
-var stateInitials = states();
-console.log(stateInitials);
-
-/*const browser = await puppeteer.launch({
-        headless: false,
-        slowMo: 100
-    });
-
-const page = await browser.newPage();
-
-await page.goto('https://the-internet.herokuapp.com/checkboxes')
-
-await page.click('#checkboxes input:nth-of-type(2)');
-await page.click('#checkboxes input:nth-of-type(1)');*/
+fetch('https://hook.us2.make.com/u3ejdjhxrmtw44p0yvlq48pp3s9yhav0')
+.then(response => {
+    // Check if the request was successful (status in the 200-299 range)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    // Parse the response body as JSON
+    return response.json();
+  });
