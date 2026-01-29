@@ -1,8 +1,7 @@
 import express from "express";
 import 'dotenv/config';
+import dateFormat, { masks } from "dateformat";
 import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
-
-import { exec } from 'child_process';
 
 const app = express();
 const PORT = 3000;
@@ -21,7 +20,8 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const cardID = data["cardID"];
 
     //Date Section - Break down date into individual parts
-    const effectiveDate = data["effectiveDate"];
+    const now = new Date()
+    const effectiveDate = dateFormat(now, "isoDateTime");
     const dateParts = effectiveDate.split("-");
     const year = dateParts[0];
     const month = dateParts[1];
@@ -33,7 +33,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const businessType = data["companyType"];
 
 
-    //Business Address Section - Break down address into individual parts
+    //Business Address Section - Break down address into individual parts - THIS WILL CHANGE ONCE THEY FIX PIPEFY FORM
     const businessAddress = data["businessAddress"];
     const addressParts = businessAddress.split(", ");
     const stateAndZip = addressParts[2].split(" ");
@@ -70,7 +70,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const emailTB = "info@tbfinancialservice.com";
 
 
-    //Partner Name Section - Break down the partner information into individual parts
+    //Partner Name Section - Break down the partner information into individual parts -MIGHT CHANGE
     const partners = data["partnerName"];
     const partnerNames = partners.split("\n");
     const numberOfPartners = partnerNames.length;
@@ -84,7 +84,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
         partnerLastNameList.push(partnerFullNameList[partnerFullNameList.length - 1]); //Store partner i's last name in the i-th position of the last name array
         partnerNameInitialList.push(partnerFirstNameList[i].slice(0, 1));
     }
-    //Partner Address Section
+    //Partner Address Section - WILL CHANGE WHEN PIPEFY CHANGES
     var partnerAddresses;
     var partnerAddressesList = [];
     var partnerAddress = [];
@@ -126,20 +126,6 @@ app.post("/solicitacao-estadual", async (req, res) => {
             partnerZipList.push(partnerZip);
         }
     }
-
-    
-    //All information that needs to be used on SunBiz is correct. Only need some info which was not available
-    /*console.log(`Month: ${month}, Day: ${day}, Year: ${year}\nBusiness Type: ${businessType}\nBusiness Name: ${businessName}\nBusiness Address: ${businessAddress}\n\n`);
-    console.log(`Here comes the business address in parts:\Address: ${address}, City: ${city}, State: ${businessState}, Zip Code: ${zip}, Country: ${country}\n\n`);
-    console.log(`Here comes the owner name information in parts:\nfirst name: ${ownerFirstName}, last name: ${ownerLastName}, initial: ${ownerNameInitial}, signature: ${ownerSignature}\n`);
-    console.log(`TB Email: ${emailTB}\n`);
-    console.log(`Here comes the partner name information in parts:\nfirst name: ${partnerFirstName}, last name: ${partnerLastName}, initial: ${partnerNameInitial}\n`);
-    console.log(`Here comes the partner address in parts:\nCity: ${partnerCity}, State: ${partnerState}, Zip Code: ${partnerZip}, Country: ${partnerCountry}\n\n`);
-    console.log("Does partner have the same address?" + data["samePartnerAddress"]);*/
-
-
-    //Notify the server the response was successfully received
-    //res.status(200).send("HTTP request sucessfully received from Pipefy");
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
