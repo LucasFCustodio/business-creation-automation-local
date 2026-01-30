@@ -2,13 +2,15 @@
 import puppeteer from "puppeteer";
 import states from "us-state-converter";
 import axios from "axios";
+import fs from "fs";
+import emailjs from "@emailjs/nodejs";
 
 export async function fillSunBizForm(data) {
     console.log("Data has been received: " + data);
 
     const browser = await puppeteer.launch({
         headless: false,
-        slowMo: 5,
+        slowMo: 3,
         args: [
             '--disable-features=AutofillAddressEnabled',
             '--disable-offer-store-unmasked-wallet-cards',
@@ -112,14 +114,61 @@ export async function fillSunBizForm(data) {
         //Popup handling happens automatically with the 'dialog' event listener defined earlier
         await page.keyboard.press('Enter');
 
-        //Take screenshot of the Online Filing Information, which contains the tracking #
-        /*await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            await page.screenshot({ path: 'screenshots/result.png' })
-        ]);*/
-        await page.screenshot({ path: 'screenshots/result.png' });
+        //Take screenshot of the Online Filing Information
+        const screenshotPath = 'screenshots/result.png';
+        await page.screenshot({ path: screenshotPath });
 
-        //Click continue to get out of the Online Filinf Information page - #3
+        // --- CORRECTED EMAILJS LOGIC ---
+        try {
+            console.log("Retireving Tracking #");
+
+            // Wait for the tracking number element to appear
+            await page.waitForSelector('td.efiledata');
+
+            // Extract the text
+            const trackingNumber = await page.evaluate(() => {
+                // 1. Find all 'td' elements with the class 'efiledata'
+                const dataCells = Array.from(document.querySelectorAll('td.efiledata'));
+    
+                // 2. Filter to find the one that looks like a number (or just grab the first valid one)
+                // Based on your image, it looks like the tracking number is likely the first or most prominent 'efiledata'
+                // But to be safe, we can look for the label:
+    
+                const label = Array.from(document.querySelectorAll('td.descript'))
+                    .find(td => td.textContent.includes('Document Tracking #:'));
+        
+                if (label && label.nextElementSibling) {
+                    return label.nextElementSibling.innerText.trim();
+                }
+    
+                return "NOT_FOUND";
+            }); 
+
+            const templateParams = {
+                title: data.business.name + " LLC",
+                name: "SunBiz Bot",
+                message: `New filing submitted. Tracking number captured: ${trackingNumber}`,
+            };
+
+            console.log("Sending email with Tracking #:", trackingNumber);
+
+            await emailjs.send(
+                process.env.EMAILJS_SERVICE_ID,
+                process.env.EMAILJS_TEMPLATE_ID,
+                templateParams,
+                {
+                    publicKey: process.env.EMAILJS_PUBLIC_KEY,
+                    privateKey: process.env.EMAILJS_PRIVATE_KEY,
+                }
+            );
+            console.log("Email sent successfully!");
+        } catch (emailError) {
+            console.error("Failed to send email:", emailError);
+            // We catch the error so the bot doesn't crash; it will still finish the process below.
+        }
+        // --- NEW EMAILJS LOGIC ENDS HERE ---
+
+        //Click continue to get out of the Online Filing Information page - #3
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
             await page.click('input[name="submit"]')
