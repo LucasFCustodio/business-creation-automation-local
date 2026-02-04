@@ -134,6 +134,9 @@ app.post("/solicitacao-estadual", async (req, res) => {
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
+        cardInfo: {
+            ID: cardID
+        },
         effectiveDate: {
             day: day,
             month: month,
