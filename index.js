@@ -43,6 +43,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     //Business Address Section - Break down address into individual parts - TEST
     const useTbAddress = data["tbBusinessAddress"]; //Used to check if address will change to a personalized one, or if we just keep it at TB's financial address
     var businessState;
+    var otherState = data["otherState"];
     if (useTbAddress === "No" || useTbAddress === "no") {
         address = data["addressNumber"] + " " + data["streetName"];
         city = data["city"];
@@ -50,8 +51,11 @@ app.post("/solicitacao-estadual", async (req, res) => {
         if(businessState === "Florida" || businessState === "florida"){
             businessState = "FL";
         }
+        else if (otherState === "Delaware" || otherState === "delaware") {
+            businessState = "DE";
+        }
         else {
-            console.log("Not a Florida State... Stopping Application!")
+            console.log("Not a Florida State... Stopping Application!");
             return; //This form should not be filled out if the business is not in Florida
         }
         zipCode = data["zipCode"];
@@ -149,7 +153,8 @@ app.post("/solicitacao-estadual", async (req, res) => {
             city: city,
             state: businessState,
             zip: zipCode,
-            country: country
+            country: country,
+            otherState: otherState
         },
         owner: {
             firstName: ownerFirstName,

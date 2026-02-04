@@ -8,7 +8,39 @@ let browser = null;
 
 export async function fillSunBizForm(data) {
     try {
-        console.log("Data has been received: " + data);
+        console.log("state is: " + data.business.state);
+
+        //Logic for if the client wants to open a business in DELAWARE
+        if (data.business.state === "DE") {
+            try {
+                const templateParams = {
+                    title: data.business.name + " LLC",
+                    name: "SunBiz Bot",
+                    message: `
+                    New filing submitted for Delaware. Please follow up accordingly.
+                    Data: ${JSON.stringify(data, null, 2)}
+                    \n\nThank you for your cooperation.
+                    `,
+                    email: "custodiolucas555@gmail.com",
+                };
+
+                //Getting ready to send email for the rush process
+                await emailjs.send(
+                    process.env.EMAILJS_SERVICE_ID,
+                    process.env.EMAILJS_TEMPLATE_ID, //Same template, but will send it to the following email - threekfastcsvc@aol.com
+                    templateParams,
+                    {
+                        publicKey: process.env.EMAILJS_PUBLIC_KEY,
+                        privateKey: process.env.EMAILJS_PRIVATE_KEY,
+                    }
+                );
+                console.log("Delaware email sent successfully!");
+            } catch (emailError) {
+                console.error("Failed to send email:", emailError);
+                // We catch the error so the bot doesn't crash; it will still finish the process below.
+            }
+            return "Delaware";
+        }
 
         if (data.checks.rushProcess === "Yes (+$300)") {
             try {
@@ -33,7 +65,7 @@ export async function fillSunBizForm(data) {
                         privateKey: process.env.EMAILJS_PRIVATE_KEY,
                     }
                 );
-                console.log("Email sent successfully!");
+                console.log("Rush process email sent successfully!");
             } catch (emailError) {
                 console.error("Failed to send email:", emailError);
                 // We catch the error so the bot doesn't crash; it will still finish the process below.
