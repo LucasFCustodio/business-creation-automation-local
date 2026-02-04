@@ -12,14 +12,21 @@ app.get("/", (req, res) => {
     res.send("The port is working")
 });
 
-app.post("/solicitacao-estadual", async (req, res) => {
-    console.log("Raw Data received from Pipefy: " + req.body);
-    const data = req.body;
+var address = "2335 E Atlantic Blvd #300-20";
+var city = "Pompano Beach";
+var zipCode = "33062";
+var country = "USA";
 
-    //Card ID
+app.post("/solicitacao-estadual", async (req, res) => {
+    const data = req.body;
+    console.log("Received data:", data);
+    const rushProcess = data["rushProcess"];
+
+    //Card ID - DONE
     const cardID = data["cardID"];
 
-    //Date Section - Break down date into individual parts
+
+    //Date Section - Break down date into individual parts - DONE
     const now = new Date()
     const effectiveDate = dateFormat(now, "isoDateTime");
     const dateParts = effectiveDate.split("-");
@@ -28,39 +35,37 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const day = dateParts[2].slice(0, 2);
 
 
-    //Business Section
+    //Business Section - DONE
     const businessName = data["businessName"];
     const businessType = data["companyType"];
 
 
-    //Business Address Section - Break down address into individual parts - THIS WILL CHANGE ONCE THEY FIX PIPEFY FORM
-    const businessAddress = data["businessAddress"];
-    const addressParts = businessAddress.split(", ");
-    const stateAndZip = addressParts[2].split(" ");
-    const stateAndZipLength = stateAndZip.length;
-    const country = "USA";
+    //Business Address Section - Break down address into individual parts - TEST
+    const useTbAddress = data["tbBusinessAddress"]; //Used to check if address will change to a personalized one, or if we just keep it at TB's financial address
     var businessState;
-    var zip;
-    const city = addressParts[1];
-    const address = addressParts[0];
-    //If the state has more than one word, then the first two words are the state name. If it's just one word, then it's just the first word
-    if (stateAndZipLength == 3) {
-        businessState = stateAndZip[0] + " " + stateAndZip[1];
-        zip = stateAndZip[2];
+    if (useTbAddress === "No" || useTbAddress === "no") {
+        address = data["addressNumber"] + " " + data["streetName"];
+        city = data["city"];
+        businessState = data["businessState"];
+        if(businessState === "Florida" || businessState === "florida"){
+            businessState = "FL";
+        }
+        else {
+            console.log("Not a Florida State... Stopping Application!")
+            return; //This form should not be filled out if the business is not in Florida
+        }
+        zipCode = data["zipCode"];
+        country = "USA";
     }
     else {
-        businessState = stateAndZip[0];
-        zip = stateAndZip[1];
+        console.log("Using TB Financial Service Business Address"); //TB address is already the default address, so don't need to do anything
+        businessState = "FL";
     }
 
 
-    //Owner Section - Break down the owner information into individual parts
-    const ownerName = data["clientName"];
-    const ownerNameParts = ownerName.split(" ");
-    const ownerNamePartsLength = ownerNameParts.length;
-    const ownerFirstName = ownerNameParts[ownerNamePartsLength - 1];
-    const ownerLastName = ownerNameParts[0];
-    const ownerNameInitial = ownerFirstName.slice(0, 1);
+    //Owner Section - Break down the owner information into individual parts - TEST
+    const ownerFirstName = data["firstName"];
+    const ownerLastName = data["lastName"];
     const ownerSignature = ownerFirstName + " " + ownerLastName;
     const ownerPhoneNumber = data["phoneNumber"];
     const ownerEmail = data["email"];
@@ -70,7 +75,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const emailTB = "info@tbfinancialservice.com";
 
 
-    //Partner Name Section - Break down the partner information into individual parts -MIGHT CHANGE
+    //Partner Name Section - Break down the partner information into individual parts - MIGHT CHANGE
     const partners = data["partnerName"];
     const partnerNames = partners.split("\n");
     const numberOfPartners = partnerNames.length;
@@ -102,7 +107,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
         partnerAddressList.push(address); // Use the split 'address' variable, not the full string
         partnerCityList.push(city);
         partnerStateList.push(businessState);
-        partnerZipList.push(zip);
+        partnerZipList.push(zipCode);
     }
     else {
         partnerAddresses = data["differentPartnerAddress"]; //Stores the string that has all partner addresses
@@ -140,13 +145,12 @@ app.post("/solicitacao-estadual", async (req, res) => {
             address: address, // street name, building #, and suite #
             city: city,
             state: businessState,
-            zip: zip,
+            zip: zipCode,
             country: country
         },
         owner: {
             firstName: ownerFirstName,
             lastName: ownerLastName,
-            initial: ownerNameInitial,
             signature: ownerSignature,
             phoneNumber: ownerPhoneNumber,
             email: ownerEmail
@@ -164,14 +168,21 @@ app.post("/solicitacao-estadual", async (req, res) => {
         },
         general: {
             email: emailTB
+        },
+        checks: {
+            rushProcess: rushProcess,
+            tbAddress: useTbAddress
         }
     };
 
+
     //Fill out the form, and if it returns a 'success', then call the moveCardToPhase which activates the Make automatioion to move the card to the next phase - WILL CHANGE TO A DIFFERENT PROGRAM
+    console.log("Filling out SunBiz form now...");
     if (await fillSunBizForm(completeData) === "success") {
         console.log("Form completed successfully.");
     }
 })
+
 
 app.listen(PORT, () => {
     console.log(`App running on port ${PORT}`);

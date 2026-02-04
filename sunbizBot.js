@@ -2,11 +2,41 @@
 import puppeteer from "puppeteer";
 import states from "us-state-converter";
 import axios from "axios";
-import fs from "fs";
 import emailjs from "@emailjs/nodejs";
 
 export async function fillSunBizForm(data) {
     console.log("Data has been received: " + data);
+
+    if (data.checks.rushProcess === "Yes (+$300)") {
+        try {
+            const templateParams = {
+                title: data.business.name + " LLC",
+                name: "SunBiz Bot",
+                message: `
+                New filing submitted with a Rush Process Request. Please follow up accordingly.
+                Data: ${JSON.stringify(data, null, 2)}
+                \n\nThank you for your cooperation.
+                `,
+                email: "custodiolucas555@gmail.com",
+            };
+
+            //Getting ready to send email for the rush process
+            await emailjs.send(
+                process.env.EMAILJS_SERVICE_ID,
+                process.env.EMAILJS_TEMPLATE_ID, //Same template, but will send it to the following email - threekfastcsvc@aol.com
+                templateParams,
+                {
+                    publicKey: process.env.EMAILJS_PUBLIC_KEY,
+                    privateKey: process.env.EMAILJS_PRIVATE_KEY,
+                }
+            );
+            console.log("Email sent successfully!");
+        } catch (emailError) {
+            console.error("Failed to send email:", emailError);
+            // We catch the error so the bot doesn't crash; it will still finish the process below.
+        }
+        return "rush";
+    }
 
     const browser = await puppeteer.launch({
         headless: false,
@@ -63,11 +93,21 @@ export async function fillSunBizForm(data) {
         await page.click('#same_addr_flag');
 
         //Fill in Registed Agent Information
-        await page.type('#ra_name_corp_name', 'TB Financial Services LLC');
-        await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
-        await page.type('#ra_city', 'Pompano Beach');
-        await page.type('#ra_zip', '33062');
-        await page.type('#ra_signature', 'Brenno Dias');
+        if(data.tbAddress === "No" || data.tbAddress === "no") { //If user wants their own address, then Brenno is the RA
+            await page.type('#ra_name_corp_name', 'TB Financial Services LLC');
+            await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
+            await page.type('#ra_city', 'Pompano Beach');
+            await page.type('#ra_zip', '33062');
+            await page.type('#ra_signature', 'Brenno Dias');
+        }
+        else { //If the user wants TB's address, then they are the RA
+            await page.type('#ra_name_last_name', data.owner.lastName);
+            await page.type('#ra_name_first_name', data.owner.firstName);
+            await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
+            await page.type('#ra_city', 'Pompano Beach');
+            await page.type('#ra_zip', '33062');
+            await page.type('#ra_signature', `${data.owner.firstName} ${data.owner.lastName}`); //Owner's name as signature
+        }
 
         //Provisions
         await page.type('#purpose', 'For any and all business proposals');
@@ -148,6 +188,7 @@ export async function fillSunBizForm(data) {
                 title: data.business.name + " LLC",
                 name: "SunBiz Bot",
                 message: `New filing submitted. Tracking number captured: ${trackingNumber}`,
+                email: "custodiolucas555@gmail.com",
             };
 
             console.log("Sending email with Tracking #:", trackingNumber);
@@ -195,7 +236,6 @@ export async function fillSunBizForm(data) {
         await page.click('#bntNextCustomerInfo');
 
         //Credit card filling section
-        console.log("It left the Promise.all!");
         await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
         await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
         await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
@@ -205,12 +245,10 @@ export async function fillSunBizForm(data) {
 
         //await browser.close();
 
-        console.log("The Bot worked - inside if!");
-
+        console.log("The bot filled everything out. Returning success...");
         return "success";
     }
 
-    console.log("The Bot worked!");
 }
 
 export async function moveCardToPhase(cardID) {
