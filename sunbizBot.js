@@ -160,14 +160,14 @@ export async function fillSunBizForm(data) {
                 await page.type(`#off${i + 1}_name_title`, 'MGRM'); //Title
                 await page.type(`#off${i + 1}_name_last_name`, data.partner.lastNameList[i]); //Last name for this partner
                 await page.type(`#off${i + 1}_name_first_name`, data.partner.firstNameList[i]);
-                await page.type(`#off${i + 1}_name_m_name`, data.partner.initialList[i]);
 
                 //Fill out address information
-                await page.type(`#off${i + 1}_name_addr1`, data.partner.addressList[i]);
+                await page.type(`#off${i + 1}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
                 await page.type(`#off${i + 1}_name_city`, data.partner.cityList[i]);
-                stateInitials = states.abbr(data.partner.stateList[i]);
-                await page.type(`#off${i + 1}_name_st`, stateInitials);
-                await page.type(`#off${i + 1}_name_zip`, data.partner.zipList[i]);
+                //stateInitials = states.abbr(data.partner.stateList[i]);
+                //await page.type(`#off${i + 1}_name_st`, stateInitials);
+                await page.type(`#off${i + 1}_name_st`, "FL");
+                await page.type(`#off${i + 1}_name_zip`, data.partner.zipCodeList[i]);
                 await page.type(`#off${i + 1}_name_cntry`, data.partner.country);
             }
 

@@ -51,7 +51,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
         if(businessState === "Florida" || businessState === "florida"){
             businessState = "FL";
         }
-        else if (otherState === "Delaware" || otherState === "delaware") {
+        else if (businessState === "Delaware" || businessState === "delaware") {
             businessState = "DE";
         }
         else {
@@ -67,7 +67,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     }
 
 
-    //Owner Section - Break down the owner information into individual parts - TEST
+    //Owner Section - Break down the owner information into individual parts - DONE
     const ownerFirstName = data["firstName"];
     const ownerLastName = data["lastName"];
     const ownerSignature = ownerFirstName + " " + ownerLastName;
@@ -79,62 +79,29 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const emailTB = "info@tbfinancialservice.com";
 
 
-    //Partner Name Section - Break down the partner information into individual parts - MIGHT CHANGE
-    const partners = data["partnerName"];
-    const partnerNames = partners.split("\n");
-    const numberOfPartners = partnerNames.length;
-    var partnerFullNameList = [];
-    var partnerFirstNameList =[];
-    var partnerLastNameList = [];
-    var partnerNameInitialList = [];
-    for (var i = 0; i < numberOfPartners; i++) {
-        partnerFullNameList = partnerNames[i].split(" "); //Split parter i's first and last name
-        partnerFirstNameList.push(partnerFullNameList[0]); //Store partner i's first name in the i-th position of the first name array
-        partnerLastNameList.push(partnerFullNameList[partnerFullNameList.length - 1]); //Store partner i's last name in the i-th position of the last name array
-        partnerNameInitialList.push(partnerFirstNameList[i].slice(0, 1));
-    }
+    //Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
+    const partnerFirstNameString = data["partnerFirstName"];
+    const partnerFirstNameList = partnerFirstNameString.split(", ");
+    const partnerLastNameString = data["partnerLastName"];
+    const partnerLastNameList = partnerLastNameString.split(", ");
+    const numberOfPartners = partnerFirstNameList.length;
+
+    console.log("This is the number of partners: " + numberOfPartners);
+
     //Partner Address Section - WILL CHANGE WHEN PIPEFY CHANGES
-    var partnerAddresses;
-    var partnerAddressesList = [];
-    var partnerAddress = [];
-    var partnerStateAndZip = [];
-    const partnerCountry = "USA";
-    var partnerAddressPart;
-    var partnerState;
-    var partnerZip;
-    var partnerCity;
-    var partnerAddressList = [];
-    var partnerCityList = [];
-    var partnerStateList = [];
-    var partnerZipList = [];
-    if (data["samePartnerAddress"] === "Yes") {
-        partnerAddressList.push(address); // Use the split 'address' variable, not the full string
-        partnerCityList.push(city);
-        partnerStateList.push(businessState);
-        partnerZipList.push(zipCode);
-    }
-    else {
-        partnerAddresses = data["differentPartnerAddress"]; //Stores the string that has all partner addresses
-        partnerAddressesList = partnerAddresses.split("\n"); //Contains all partner addresses in an array
-        for (var i = 0; i < numberOfPartners; i++) {
-            partnerAddress = partnerAddressesList[i].split(", "); // Stores each part of the i-th address
-            partnerAddressPart = partnerAddress[0];
-            partnerCity = partnerAddress[1]; //Stores the city for the current partner
-            partnerStateAndZip = partnerAddress[2].split(" ");
-            if (partnerStateAndZip.length == 3) {
-                partnerState = partnerStateAndZip[0] + " " + partnerStateAndZip[1]; //Store state for current partner
-                partnerZip = partnerStateAndZip[2]; //Stores ZIP for current partner
-            }
-            else {
-                partnerState = partnerStateAndZip[0]; //Store state for current partner
-                partnerZip = partnerStateAndZip[1]; //Store ZIP for current partner
-            }
-            partnerAddressList.push(partnerAddressPart);
-            partnerCityList.push(partnerCity)
-            partnerStateList.push(partnerState);
-            partnerZipList.push(partnerZip);
-        }
-    }
+    const partnerAddressNumberString = data["partnerAddressNumber"];
+    const partnerStreetNameString = data["partnerStreetName"];
+    const partnerCityString = data["partnerCity"];
+    const partnerZipCodeString = data["partnerZipCode"];
+    //const partnerStateString = data["partnerState"];
+    const partnerCountryString = data["partnerCountry"];
+    
+    const partnerAddressNumberList = partnerAddressNumberString.split(", ");
+    const partnerStreetNameList = partnerStreetNameString.split(", ");
+    const partnerCityList = partnerCityString.split(", ");
+    const partnerZipCodeList = partnerZipCodeString.split(", ");
+    //const partnerStateList = partnerStateString.split(", ");
+    const partnerCountryList = partnerCountryString.split(", ");
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
@@ -167,12 +134,12 @@ app.post("/solicitacao-estadual", async (req, res) => {
             numberOfPartners: numberOfPartners,
             firstNameList: partnerFirstNameList,
             lastNameList: partnerLastNameList,
-            initialList: partnerNameInitialList,
-            addressList: partnerAddressList,
+            addressNumberList: partnerAddressNumberList,
+            streetNameList: partnerStreetNameList,
             cityList: partnerCityList,
-            stateList: partnerStateList,
-            zipList: partnerZipList,
-            country: partnerCountry
+            //stateList: partnerStateList,
+            zipCodeList: partnerZipCodeList,
+            country: partnerCountryList
         },
         general: {
             email: emailTB
