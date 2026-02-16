@@ -2,6 +2,7 @@ import express from "express";
 import 'dotenv/config';
 import dateFormat, { masks } from "dateformat";
 import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
+import report from "./annual-report.js";
 
 const app = express();
 const PORT = 3000;
@@ -12,12 +13,11 @@ app.get("/", (req, res) => {
     res.send("The port is working")
 });
 
-var address = "2335 E Atlantic Blvd #300-20";
-var city = "Pompano Beach";
-var zipCode = "33062";
-var country = "USA";
-
 app.post("/solicitacao-estadual", async (req, res) => {
+    var address = "2335 E Atlantic Blvd #300-20";
+    var city = "Pompano Beach";
+    var zipCode = "33062";
+    var country = "USA";
     const data = req.body;
     console.log("Received data:", data);
     const rushProcess = data["rushProcess"];
@@ -161,6 +161,35 @@ app.post("/solicitacao-estadual", async (req, res) => {
     console.log("Filling out SunBiz form now...");
     if (await fillSunBizForm(completeData) === "success") {
         console.log("Form completed successfully.");
+    }
+})
+
+app.post("/annual-report", async (req, res) => {
+    const data = req.body;
+
+    //Default TB Address
+    var address = "2335 E Atlantic Blvd #300-20";
+    var city = "Pompano Beach";
+    var zipCode = "33062";
+    var country = "USA";
+
+    //Business Information
+    var businessState = data["state"];
+    var businessName = data["businessName"];
+    var useTbAddress = data["tbAddress"];
+    var changeAddress = data["changeAddress"];
+    var newAddress = data["newAddress"];
+
+    const completeData = {
+        business: {
+            name: businessName,
+            state: businessState,
+            address: newAddress
+        },
+        checks: {
+            tbAddress: useTbAddress,
+            changeAddress: changeAddress
+        }
     }
 })
 
