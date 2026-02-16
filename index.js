@@ -103,8 +103,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const partnerZipCodeList = partnerZipCodeString.split(", ");
     const partnerCountryList = partnerCountryString.split(", ");
 
-    console.log("State List for Partners: " + partnerStateList[0] + " and " + partnerStateList[1]);
-    console.log("Country list for Partners: " + partnerCountryList[0] + " and " + partnerCountryList[1]);
+    console.log("Business State in the index.js form: " + businessState);
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {

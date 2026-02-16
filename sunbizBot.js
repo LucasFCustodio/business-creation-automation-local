@@ -75,7 +75,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 3,
+            slowMo: 10,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -119,8 +119,8 @@ export async function fillSunBizForm(data) {
             //Fill in Principal Place of Business Information
             await page.type('#princ_addr1', data.business.address);
             await page.type('#princ_city', data.business.city);
-            var stateInitials = states.abbr(data.business.state);
-            await page.type('#princ_st', stateInitials);
+            await page.type('#princ_st', data.business.state);
+            console.log("ess State in the index.js form: " + data.business.state);
             await page.type('#princ_zip', data.business.zip);
             await page.type('#princ_cntry', data.business.country);
 
