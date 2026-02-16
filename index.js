@@ -92,16 +92,19 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const partnerAddressNumberString = data["partnerAddressNumber"];
     const partnerStreetNameString = data["partnerStreetName"];
     const partnerCityString = data["partnerCity"];
+    const partnerStateString = data["partnerState"];
     const partnerZipCodeString = data["partnerZipCode"];
-    //const partnerStateString = data["partnerState"];
     const partnerCountryString = data["partnerCountry"];
     
     const partnerAddressNumberList = partnerAddressNumberString.split(", ");
     const partnerStreetNameList = partnerStreetNameString.split(", ");
     const partnerCityList = partnerCityString.split(", ");
+    const partnerStateList = partnerStateString.split(", ");
     const partnerZipCodeList = partnerZipCodeString.split(", ");
-    //const partnerStateList = partnerStateString.split(", ");
     const partnerCountryList = partnerCountryString.split(", ");
+
+    console.log("State List for Partners: " + partnerStateList[0] + " and " + partnerStateList[1]);
+    console.log("Country list for Partners: " + partnerCountryList[0] + " and " + partnerCountryList[1]);
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
@@ -137,7 +140,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
             addressNumberList: partnerAddressNumberList,
             streetNameList: partnerStreetNameList,
             cityList: partnerCityList,
-            //stateList: partnerStateList,
+            stateList: partnerStateList,
             zipCodeList: partnerZipCodeList,
             country: partnerCountryList
         },
