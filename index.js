@@ -79,7 +79,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const emailTB = "info@tbfinancialservice.com";
 
 
-    //Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
+    //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
     const partnerFirstNameString = data["partnerFirstName"];
     const partnerFirstNameList = partnerFirstNameString.split(", ");
     const partnerLastNameString = data["partnerLastName"];
@@ -88,7 +88,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
 
     console.log("This is the number of partners: " + numberOfPartners);
 
-    //Partner Address Section - WILL CHANGE WHEN PIPEFY CHANGES
+    //Physical Partner Address Section - Have a list of partner addresses
     const partnerAddressNumberString = data["partnerAddressNumber"];
     const partnerStreetNameString = data["partnerStreetName"];
     const partnerCityString = data["partnerCity"];
@@ -103,7 +103,11 @@ app.post("/solicitacao-estadual", async (req, res) => {
     const partnerZipCodeList = partnerZipCodeString.split(", ");
     const partnerCountryList = partnerCountryString.split(", ");
 
-    console.log("Business State in the index.js form: " + businessState);
+
+    //Business Partner Name Section - Have a list of businmess partner names
+
+    //Business Partner Address Section - Have a list of business partner addresses
+
 
     //Store everything into completeData variable, and call the SunBiz function
     const completeData = {
