@@ -3,6 +3,7 @@ import 'dotenv/config';
 import dateFormat, { masks } from "dateformat";
 import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
 import report from "./annual-report.js";
+import states from "us-state-converter";
 
 const app = express();
 const PORT = 3000;
@@ -17,7 +18,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
     var address = "2335 E Atlantic Blvd #300-20";
     var city = "Pompano Beach";
     var zipCode = "33062";
-    var country = "USA";
+    var country = "US";
     const data = req.body;
     console.log("Received data:", data);
     const rushProcess = data["rushProcess"];
@@ -171,26 +172,67 @@ app.post("/annual-report", async (req, res) => {
     var address = "2335 E Atlantic Blvd #300-20";
     var city = "Pompano Beach";
     var zipCode = "33062";
-    var country = "USA";
+    var country = "US";
 
     //Business Information
     var businessState = data["state"];
+    var abbrevState = states.abbr(businessState);
     var businessName = data["businessName"];
     var useTbAddress = data["tbAddress"];
     var changeAddress = data["changeAddress"];
-    var newAddress = data["newAddress"];
+
+    //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
+    const partnerFirstNameString = data["partnerFirstName"];
+    const partnerFirstNameList = partnerFirstNameString.split(", ");
+    const partnerLastNameString = data["partnerLastName"];
+    const partnerLastNameList = partnerLastNameString.split(", ");
+    const numberOfPartners = partnerFirstNameList.length;
+
+    console.log("This is the number of partners: " + numberOfPartners);
+
+    //Physical Partner Address Section - Have a list of partner addresses
+    const partnerAddressNumberString = data["partnerAddressNumber"];
+    const partnerStreetNameString = data["partnerStreetName"];
+    const partnerCityString = data["partnerCity"];
+    const partnerStateString = data["partnerState"];
+    const partnerZipCodeString = data["partnerZipCode"];
+    const partnerCountryString = data["partnerCountry"];
+    
+    const partnerAddressNumberList = partnerAddressNumberString.split(", ");
+    const partnerStreetNameList = partnerStreetNameString.split(", ");
+    const partnerCityList = partnerCityString.split(", ");
+    const partnerStateList = partnerStateString.split(", ");
+    const partnerZipCodeList = partnerZipCodeString.split(", ");
+    const partnerCountryList = partnerCountryString.split(", ");
 
     const completeData = {
         business: {
             name: businessName,
+            address: address,
+            city: city,
+            zip: zipCode,
             state: businessState,
-            address: newAddress
+            abbrevState: abbrevState,
+            country: country
         },
         checks: {
             tbAddress: useTbAddress,
             changeAddress: changeAddress
+        },
+        partner: {
+            numberOfPartners: numberOfPartners,
+            firstNameList: partnerFirstNameList,
+            lastNameList: partnerLastNameList,
+            addressNumberList: partnerAddressNumberList,
+            streetNameList: partnerStreetNameList,
+            cityList: partnerCityList,
+            stateList: partnerStateList,
+            zipCodeList: partnerZipCodeList,
+            country: partnerCountryList
         }
     }
+
+    report(completeData);
 })
 
 
