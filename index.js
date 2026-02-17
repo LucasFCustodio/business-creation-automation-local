@@ -190,21 +190,6 @@ app.post("/annual-report", async (req, res) => {
 
     console.log("This is the number of partners: " + numberOfPartners);
 
-    //Physical Partner Address Section - Have a list of partner addresses
-    const partnerAddressNumberString = data["partnerAddressNumber"];
-    const partnerStreetNameString = data["partnerStreetName"];
-    const partnerCityString = data["partnerCity"];
-    const partnerStateString = data["partnerState"];
-    const partnerZipCodeString = data["partnerZipCode"];
-    const partnerCountryString = data["partnerCountry"];
-    
-    const partnerAddressNumberList = partnerAddressNumberString.split(", ");
-    const partnerStreetNameList = partnerStreetNameString.split(", ");
-    const partnerCityList = partnerCityString.split(", ");
-    const partnerStateList = partnerStateString.split(", ");
-    const partnerZipCodeList = partnerZipCodeString.split(", ");
-    const partnerCountryList = partnerCountryString.split(", ");
-
     const completeData = {
         business: {
             name: businessName,
@@ -223,12 +208,6 @@ app.post("/annual-report", async (req, res) => {
             numberOfPartners: numberOfPartners,
             firstNameList: partnerFirstNameList,
             lastNameList: partnerLastNameList,
-            addressNumberList: partnerAddressNumberList,
-            streetNameList: partnerStreetNameList,
-            cityList: partnerCityList,
-            stateList: partnerStateList,
-            zipCodeList: partnerZipCodeList,
-            country: partnerCountryList
         }
     }
 

@@ -15,7 +15,7 @@ export async function report(data) {
         }
         browser = await puppeteer.launch({
             headless: false,
-            slowMo: 20,
+            slowMo: 70,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -83,6 +83,7 @@ export async function report(data) {
                 await page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
             ]);
 
+
             //MALING ADDRESS
             await Promise.all([
                 page.waitForNavigation({ waitUntil: "networkidle2" }),
@@ -98,6 +99,31 @@ export async function report(data) {
                 await page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
             ]);
             //WILL BE CHANGED
+
+
+            //DELETING PARTNERS
+            try {
+                while (true) {
+                    await Promise.all([
+                        page.waitForNavigation({ waitUntil: 'networkidle2' }),
+                        await page.click('value="Edit or Delete Manager"')
+
+                    ]);
+                    await Promise.all([
+                        page.waitForNavigation({ waitUntil: 'networkidle2' }),
+                        await page.click(".red-link")
+                    ]);
+                }
+            } catch(error) {
+                console.log("Keep going!");
+            }
+
+            //ADDING NEW PARTNERS
+            if (data.partner.numberOfPartners > 0)
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: "networkidle2" }),
+                await page.click('input[value="Add New Manager/Authorized Member/Authorized Representative?"]')
+            ]);
 
         }
 
