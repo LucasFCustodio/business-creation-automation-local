@@ -81,33 +81,80 @@ app.post("/solicitacao-estadual", async (req, res) => {
 
 
     //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
-    const partnerFirstNameString = data["partnerFirstName"];
-    const partnerFirstNameList = partnerFirstNameString.split(", ");
-    const partnerLastNameString = data["partnerLastName"];
-    const partnerLastNameList = partnerLastNameString.split(", ");
-    const numberOfPartners = partnerFirstNameList.length;
+    var partnerType = data["partnerType"];
+    var partnerFirstNameString;
+    var partnerFirstNameList;
+    var partnerLastNameString;
+    var partnerLastNameList;
+    var numberOfPartners;
 
-    console.log("This is the number of partners: " + numberOfPartners);
+    var partnerAddressNumberString;
+    var partnerStreetNameString;
+    var partnerCityString;
+    var partnerStateString;
+    var partnerZipCodeString;
+    var partnerCountryString;
 
-    //Physical Partner Address Section - Have a list of partner addresses
-    const partnerAddressNumberString = data["partnerAddressNumber"];
-    const partnerStreetNameString = data["partnerStreetName"];
-    const partnerCityString = data["partnerCity"];
-    const partnerStateString = data["partnerState"];
-    const partnerZipCodeString = data["partnerZipCode"];
-    const partnerCountryString = data["partnerCountry"];
+    var partnerAddressNumberList;
+    var partnerStreetNameList;
+    var partnerCityList;
+    var partnerStateList;
+    var partnerZipCodeList;
+    var partnerCountryList;
+
+    if (partnerType == "Individuals (Pessoas físicas)") {
+        //Physical Partner Name Section
+        partnerFirstNameString = data["partnerFirstName"];
+        partnerFirstNameList = partnerFirstNameString.split(", ");
+        partnerLastNameString = data["partnerLastName"];
+        partnerLastNameList = partnerLastNameString.split(", ");
+        numberOfPartners = partnerFirstNameList.length;
+
+        console.log("This is the number of partners: " + numberOfPartners);
+
+        //Physical Partner Address Section - Have a list of partner addresses
+        partnerAddressNumberString = data["partnerAddressNumber"];
+        partnerStreetNameString = data["partnerStreetName"];
+        partnerCityString = data["partnerCity"];
+        partnerStateString = data["partnerState"];
+        partnerZipCodeString = data["partnerZipCode"];
+        partnerCountryString = data["partnerCountry"];
     
-    const partnerAddressNumberList = partnerAddressNumberString.split(", ");
-    const partnerStreetNameList = partnerStreetNameString.split(", ");
-    const partnerCityList = partnerCityString.split(", ");
-    const partnerStateList = partnerStateString.split(", ");
-    const partnerZipCodeList = partnerZipCodeString.split(", ");
-    const partnerCountryList = partnerCountryString.split(", ");
+        partnerAddressNumberList = partnerAddressNumberString.split(", ");
+        partnerStreetNameList = partnerStreetNameString.split(", ");
+        partnerCityList = partnerCityString.split(", ");
+        partnerStateList = partnerStateString.split(", ");
+        partnerZipCodeList = partnerZipCodeString.split(", ");
+        partnerCountryList = partnerCountryString.split(", ");
+    }
+    else if (data["partnerType"] == "Companies (Empresas)") {
+        //Business Partner Name Section - Have a list of businmess partner names
+        partnerFirstNameString = data["businessPartnerName"];
+        partnerFirstNameList = partnerFirstNameString.split(", ");
+        numberOfPartners = partnerFirstNameList.length;
 
+        console.log("This is the number of business partners: " + numberOfPartners);
 
-    //Business Partner Name Section - Have a list of businmess partner names
+        //Business Partner Address Section - Have a list of business partner addresses
+        partnerAddressNumberString = data["businessPartnerAddressNumber"];
+        partnerStreetNameString = data["businessPartnerStreetName"];
+        partnerCityString = data["businessPartnerCity"];
+        partnerStateString = data["businessPartnerState"];
+        partnerZipCodeString = data["businessPartnerZipCode"];
+        partnerCountryString = data["businessPartnerCountry"];
+    
+        partnerAddressNumberList = partnerAddressNumberString.split(", ");
+        partnerStreetNameList = partnerStreetNameString.split(", ");
+        partnerCityList = partnerCityString.split(", ");
+        partnerStateList = partnerStateString.split(", ");
+        partnerZipCodeList = partnerZipCodeString.split(", ");
+        partnerCountryList = partnerCountryString.split(", ");
+    }
+    else {
+        numberOfPartners = 0;
+    }
 
-    //Business Partner Address Section - Have a list of business partner addresses
+    
 
 
     //Store everything into completeData variable, and call the SunBiz function
@@ -138,6 +185,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
             email: ownerEmail
         },
         partner: {
+            type: partnerType,
             numberOfPartners: numberOfPartners,
             firstNameList: partnerFirstNameList,
             lastNameList: partnerLastNameList,

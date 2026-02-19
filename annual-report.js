@@ -4,10 +4,20 @@ import emailjs from "@emailjs/nodejs";
 let browser = null;
 let check = false;
 
+function addLLC(businessName) {
+    if(!(businessName.includes('LLC') || businessName.includes('llc') || businessName.includes('L.L.C') || businessName.includes('l.l.c'))) {
+        businessName = `${businessName} LLC`;
+    }
+    businessName = businessName.toUpperCase();
+    console.log("Returning businessName:", businessName);
+    return businessName;
+}
+
 export async function report(data) {
     try{
         console.log("This is the data: ", data);
-        const businessName = data.business.name;
+        var businessName = data.business.name;
+        businessName = await addLLC(businessName);
 
         if (data.business.state == "Delaware" || data.business.state == "Other") {
             console.log("Email is being sent to the appropriate party");
@@ -15,7 +25,7 @@ export async function report(data) {
         }
         browser = await puppeteer.launch({
             headless: false,
-            slowMo: 70,
+            slowMo: 20,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -34,7 +44,7 @@ export async function report(data) {
         page.waitForNavigation({ waitUntil: 'networkidle2' }),
 
         //Process to find the right business and gets its document id
-        await page.locator('a ::-p-text(TB FINANCIAL SERVICES LLC)').click();
+        await page.locator(`a ::-p-text(${businessName})`).click();
         await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
         //The following variable is to grab the document number
@@ -103,27 +113,18 @@ export async function report(data) {
 
             //DELETING PARTNERS
             try {
-                while (true) {
-                    await Promise.all([
-                        page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                        await page.click('value="Edit or Delete Manager"')
-
-                    ]);
-                    await Promise.all([
-                        page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                        await page.click(".red-link")
-                    ]);
-                }
+                var partnerNumber = 0;
+                deletePartners(page, partnerNumber);
             } catch(error) {
-                console.log("Keep going!");
+                console.log("An error occurred when trying to delete the partners");
             }
 
             //ADDING NEW PARTNERS
-            if (data.partner.numberOfPartners > 0)
+            /*if (data.partner.numberOfPartners > 0)
             await Promise.all([
                 page.waitForNavigation({ waitUntil: "networkidle2" }),
                 await page.click('input[value="Add New Manager/Authorized Member/Authorized Representative?"]')
-            ]);
+            ]);*/
 
         }
 
@@ -132,6 +133,31 @@ export async function report(data) {
 
     } catch (error) {
         console.error("an error occured: ", error);
+    }
+}
+
+async function deletePartners(page, partnerNumber) {
+    var element = await page.$(`[name="aredit-editofficer-${partnerNumber}"]`); 
+    
+    console.log("The edit/delete button is returning this:", element);
+    
+    if (element !== null) {
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.click(`[name="aredit-editofficer-${partnerNumber}"]`) 
+        ]);
+        console.log("Inside the edit/delete page. Deleting the first partner")
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            await page.click('.red-link')
+        ]);
+        console.log("Deleted the partner, going back to the main page now");
+        partnerNumber++;
+        console.log("Current partner number = ", partnerNumber);
+        deletePartners(page, partnerNumber);
+    }
+    else {
+        console.log("No more partners");
     }
 }
 

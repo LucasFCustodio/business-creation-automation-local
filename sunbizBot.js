@@ -75,7 +75,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 10,
+            slowMo: 40,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -137,7 +137,7 @@ export async function fillSunBizForm(data) {
                 await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
                 await page.type('#ra_city', 'Pompano Beach');
                 await page.type('#ra_zip', '33062');
-                await page.type('#ra_signature', 'Brenno Dias');
+                await page.type('#ra_signature', 'TB FINANCIAL SERVICES');
             }
             else { //If the user wants TB's address, then they are the RA
                 await page.type('#ra_name_last_name', data.owner.lastName);
@@ -173,25 +173,51 @@ export async function fillSunBizForm(data) {
             await page.type(`#off1_name_cntry`, data.business.country);
 
             //Fill in Partners section for however many partners there are
+            const partnerType = data.partner.type
             const numberOfPartners = data.partner.numberOfPartners;
-            if(data.partner.lastNameList[0] == ""){
-                console.log("No partners");
+            if(partnerType == "Individuals (Pessoas físicas)") {
+                if(data.partner.lastNameList[0] == "" || data.partner.lastNameList == null){
+                    console.log("No partners");
+                }
+                else {
+                    for (var i = 0; i < numberOfPartners; i++) {
+                        //Fill out name information
+                        await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
+                        await page.type(`#off${i + 2}_name_last_name`, data.partner.lastNameList[i]); //Last name for this partner
+                        await page.type(`#off${i + 2}_name_first_name`, data.partner.firstNameList[i]);
+
+                        //Fill out address information
+                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
+                        await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
+                        await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
+                        console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
+                        await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
+                        await page.type(`#off${i + 2}_name_cntry`, data.partner.country[i]);
+                    }
+                }
+            }
+            else if (partnerType == "Companies (Empresas)") {
+                if(data.partner.firstNameList[0] == "" || data.partner.firstNameList == null) {
+                    console.log("No business partners");
+                }
+                else {
+                    for (var i = 0; i < numberOfPartners; i++) {
+                        //Fill out name information
+                        await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
+                        await page.type(`#off${i + 2}_name_corp_name`, data.partner.firstNameList[i]);
+
+                        //Fill out address information
+                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
+                        await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
+                        await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
+                        console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
+                        await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
+                        await page.type(`#off${i + 2}_name_cntry`, data.partner.country[i]);
+                    }
+                }
             }
             else {
-                for (var i = 0; i < numberOfPartners; i++) {
-                //Fill out name information
-                await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
-                await page.type(`#off${i + 2}_name_last_name`, data.partner.lastNameList[i]); //Last name for this partner
-                await page.type(`#off${i + 2}_name_first_name`, data.partner.firstNameList[i]);
-
-                //Fill out address information
-                await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
-                await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
-                await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
-                console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
-                await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
-                await page.type(`#off${i + 2}_name_cntry`, data.partner.country);
-                }
+                console.log("no partners");
             }
 
 
@@ -307,13 +333,17 @@ export async function fillSunBizForm(data) {
             await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV);
             await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME);
 
-            //Click the next button to complete payment
-            //await page.click("#bntNextPaymentInfo");
+            //Click the next button to proceed into payment
+            await page.click("#bntNextPaymentInfo");
 
-            //await browser.close();
+            //Click the Submit Payment Button
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'networkidle2' }),
+                await page.click("#submitPayment")
+            ]);
 
             console.log("The bot filled everything out. Returning success...");
-            return "success";
+            //return "success";
         }
     } catch (error) {
         const filingError = error.message;
@@ -352,7 +382,7 @@ export async function fillSunBizForm(data) {
         // 3. This block ALWAYS runs, error or success
         if (browser) {
             console.log("Closing browser...");
-            await browser.close();
+            //await browser.close();
         }
     }
 }
