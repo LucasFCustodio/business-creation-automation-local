@@ -25,7 +25,7 @@ export async function report(data) {
         }
         browser = await puppeteer.launch({
             headless: false,
-            slowMo: 20,
+            slowMo: 10,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -58,13 +58,11 @@ export async function report(data) {
 
 
         //Now that it has the documentNumber, go to the page to file the annual report
-        await Promise.all([
-            await page.goto("https://services.sunbiz.org/Filings/AnnualReport/FilingStart"),
-            await page.type("#DocumentId", documentNumber)
-        ]);
+        await page.goto("https://services.sunbiz.org/Filings/AnnualReport/FilingStart");
+        await page.type("#DocumentId", documentNumber);
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            await page.click('input[value="Submit"]')
+            page.click('input[value="Submit"]')
         ]);
 
 
@@ -76,7 +74,7 @@ export async function report(data) {
             //PRINCIPAL ADDRESS
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[value="Edit Principal Address"]')
+                page.click('input[value="Edit Principal Address"]')
             ]);
             await page.select("#Address_Country", data.business.country);
             await page.type("#Address_Address1", data.business.address);
@@ -90,14 +88,14 @@ export async function report(data) {
 
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
+                page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
             ]);
 
 
             //MALING ADDRESS
             await Promise.all([
                 page.waitForNavigation({ waitUntil: "networkidle2" }),
-                await page.click('input[value="Edit Mailing Address"]')
+                page.click('input[value="Edit Mailing Address"]')
             ]);
             await page.click("#AddressSameprincipaladdress");
 
@@ -106,26 +104,32 @@ export async function report(data) {
             console.log("Mailing Address button found. Act as if I just hit the submit button");
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
+                page.goBack() //Once the program works, remove this, and the actual submit button will be pressed
             ]);
             //WILL BE CHANGED
 
 
-            //DELETING PARTNERS
             try {
+                //DELETING PARTNERS
                 var partnerNumber = 0;
-                deletePartners(page, partnerNumber);
+                await deletePartners(page, partnerNumber); //Recursively calls itself if there are more partners
             } catch(error) {
                 console.log("An error occurred when trying to delete the partners");
             }
 
-            //ADDING NEW PARTNERS
-            /*if (data.partner.numberOfPartners > 0)
-            await Promise.all([
-                page.waitForNavigation({ waitUntil: "networkidle2" }),
-                await page.click('input[value="Add New Manager/Authorized Member/Authorized Representative?"]')
-            ]);*/
-
+            try {
+                //ADDING NEW PARTNERS
+                const numberOfPartners = data.partner.numberOfPartners;
+                console.log(`Number of partners to be added: ${numberOfPartners}`);
+                if (numberOfPartners > 0) {
+                    console.log("inside the if statement")
+                    for (let i = 0; i < numberOfPartners; i++){
+                        await addPartner(data.partner, page, i);
+                    }
+                }
+            } catch(error) {
+                console.log("An error ocurred trying to add the partners");
+            }
         }
 
 
@@ -136,29 +140,63 @@ export async function report(data) {
     }
 }
 
+/**
+ * Handles the deletion of all partners. This is done so addPartners can easily update the list
+ * @param {*} page the page the bot is using
+ * @param {*} partnerNumber the nth partner it will delete according to SunBiz's button
+ */
 async function deletePartners(page, partnerNumber) {
-    var element = await page.$(`[name="aredit-editofficer-${partnerNumber}"]`); 
-    
-    console.log("The edit/delete button is returning this:", element);
+    var element = await page.$(`[name="aredit-editofficer-${partnerNumber}"]`);
     
     if (element !== null) {
+        console.log(`Deleting Partner ${partnerNumber + 1}`);
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            await page.click(`[name="aredit-editofficer-${partnerNumber}"]`) 
+            page.click(`[name="aredit-editofficer-${partnerNumber}"]`) 
         ]);
-        console.log("Inside the edit/delete page. Deleting the first partner")
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            await page.click('.red-link')
+            page.click('.red-link')
         ]);
         console.log("Deleted the partner, going back to the main page now");
         partnerNumber++;
-        console.log("Current partner number = ", partnerNumber);
-        deletePartners(page, partnerNumber);
+        await deletePartners(page, partnerNumber);
     }
     else {
         console.log("No more partners");
     }
+}
+
+/**
+ * Adds 1 partner. Must be called in a loop to add multiple partners
+ * @param {*} partner all the information about the partner from the form
+ * @param {*} page the page the bot is using 
+ * @param {*} partnerNumber the nth partner it is adding
+ * @returns 
+ */
+async function addPartner(partner, page, partnerNumber) {
+    var element = await page.$('[value="Add New Manager/Authorized Member/Authorized Representative?"]');
+
+    console.log(`Adding Partner ${partnerNumber + 1}`);
+
+    await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle2' }),
+        page.click('[value="Add New Manager/Authorized Member/Authorized Representative?"]')
+    ]);
+    await page.type("#Officer_Title", "MGRM");
+    if(partner.type == "Individuals (Pessoas físicas)") {
+        await page.type("#Officer_LastName", partner.lastNameList[partnerNumber]);
+        await page.type("#Officer_FirstName", partner.firstNameList[partnerNumber]);
+        await page.click("#AddressSameprincipaladdress");
+    }
+    else { //In case of a business partner
+        await page.type("#Officer_EntityName", partner.firstLastList[partnerNumber]);
+    }
+    await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle2' }),
+        page.click('[value="Save Manager/Authorized Member/Authorized Representative"]')
+    ]);
+    console.log(`Finished filing for Partner ${partnerNumber + 1}`);
 }
 
 export default report;

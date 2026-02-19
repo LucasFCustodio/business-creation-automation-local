@@ -230,6 +230,7 @@ app.post("/annual-report", async (req, res) => {
     var changeAddress = data["changeAddress"];
 
     //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
+    var partnerType = "Individuals (Pessoas físicas)";
     const partnerFirstNameString = data["partnerFirstName"];
     const partnerFirstNameList = partnerFirstNameString.split(", ");
     const partnerLastNameString = data["partnerLastName"];
@@ -253,6 +254,7 @@ app.post("/annual-report", async (req, res) => {
             changeAddress: changeAddress
         },
         partner: {
+            type: partnerType,
             numberOfPartners: numberOfPartners,
             firstNameList: partnerFirstNameList,
             lastNameList: partnerLastNameList,
