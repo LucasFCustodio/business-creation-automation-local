@@ -75,7 +75,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 40,
+            slowMo: 15,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -326,21 +326,35 @@ export async function fillSunBizForm(data) {
             await page.click('#bntNextCustomerInfo');
 
             //Credit card filling section
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
+            await page.waitForSelector('#CCCardNumber', { visible: true });
+            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 100 });
             await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
             await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
-            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV);
-            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME);
+            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 100});
+            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 100 });
 
             //Click the next button to proceed into payment
             await page.click("#bntNextPaymentInfo");
 
             //Click the Submit Payment Button
-            await Promise.all([
+            /*await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click("#submitPayment")
+                // This executes a click directly inside the page's DOM
+                page.evaluate(() => document.querySelector('#submitPayment').click())
             ]);
+
+            const currentUrl = page.url();
+
+            if (currentUrl.includes("dos.gov.florida/sunbiz/")) {
+            // If we landed on the home page, something went wrong. 
+            // This 'throw' stops the code immediately and sends it to your catch block.
+            throw new Error("Payment rejected: SunBiz redirected back to the home page.");
+    
+            } else if (currentUrl.includes("Checkout/Recipt")) {
+                console.log("Payment successful! Receipt page loaded.");
+            } else {
+                throw new Error(`Unexpected page loaded: ${currentUrl}`);
+            }*/
 
             console.log("The bot filled everything out. Returning success...");
             //return "success";
