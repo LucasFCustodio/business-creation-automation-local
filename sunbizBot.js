@@ -12,64 +12,6 @@ import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
 
-async function solveRecaptchaManual(pageUrl) {
-    console.log("sending a 2Captcha request to solve the captcha");
-
-    const createResponse = await axios.post('https://api.2captcha.com/createTask', {
-        "clientKey": process.env.TWOCAPTCHA_API_KEY,
-        "task": {
-            "type": "RecaptchaV2EnterpriseTaskProxyless",
-            "websiteURL": pageUrl,
-            "websiteKey": "6Le9aJcoAAAAAPcbixT6fXd-GwK9ZVM1I5Q5xGpk",
-            "isInvisible": true
-        }
-    },
-    {
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    
-    console.log("createTask response:", createResponse.data);
-
-    const taskId = createResponse.data.taskId;
-
-    if(!taskId) {
-        throw new Error(`2Captcha createTask failed: ${JSON.stringify(createResponse.data)}`);
-    }
-
-    console.log(`Task created with ID: ${taskId}. Polling for result...`);
-
-    for (let attempt = 0; attempt < 24; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); //Wait 5 seconds before moving on
-
-        const resultResponse = await axios.post('https://api.2captcha.com/getTaskResult', {
-            "clientKey": process.env.TWOCAPTCHA_API_KEY,
-            "taskId": taskId
-        },
-        {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log(`Poll attempt ${attempt + 1}:`, resultResponse.data);
-
-        const { status, solution, errorId, errorCode, cost, errorDescription } = resultResponse.data;
-
-        if(errorId !== 0) {
-            throw new Error(`Error ${errorCode} occurred, with the following description: ${errorDescription}`);
-        }
-
-        if(status == "ready") {
-            console.log(`Captcha solved with the cost of ${cost}! Token received.`);
-            return solution.gRecaptchaResponse;
-        }
-    }
-    //If the status is not changed, and/or error is not received withing 2 minutes, throw a new Error
-    throw new Error("2Captcha timed out: captcha was not solved within 2 minutes.");
-}
-
 let browser = null;
 
 export async function fillSunBizForm(data) {
@@ -141,7 +83,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 5,
+            slowMo: 20,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -419,64 +361,83 @@ export async function fillSunBizForm(data) {
             await page.click("#bntNextPaymentInfo");
             await page.waitForSelector('#submitPayment', { visible: true });
 
-            const captchaInfo = await page.evaluate(() => {
-                const results = {};
 
-                // 1. Check for any element with data-sitekey
-                const sitekeyEl = document.querySelector('[data-sitekey]');
-                results.domSitekey = sitekeyEl ? sitekeyEl.getAttribute('data-sitekey') : null;
+            // --- DIAGNOSE SUBMIT HANDLER ---
+            const submitInfo = await page.evaluate(() => {
+                return new Promise((resolve) => {
+                    const results = {};
+        
+                    // Spy on the execute call
+                    const originalExecute = grecaptcha.enterprise.execute.bind(grecaptcha.enterprise);
+                    grecaptcha.enterprise.execute = function(sitekey, options) {
+                        results.action = options?.action;
+                        results.sitekey = sitekey;
+                        const tokenPromise = originalExecute(sitekey, options);
+                        tokenPromise.then(token => {
+                            results.tokenGenerated = token ? true : false;
+                            results.tokenPrefix = token ? token.substring(0, 20) : null;
+                
+                            // Check what fields get populated AFTER token is generated
+                            setTimeout(() => {
+                                results.gRecaptchaValue = document.getElementById('g-recaptcha-response')?.value?.substring(0, 20) || null;
+                                results.recaptchaTokenValue = document.getElementById('recaptcha-token')?.value?.substring(0, 20) || null;
+                                results.paymentApiTokenValue = document.getElementById('PaymentApiToken')?.value?.substring(0, 20) || null;
+                                resolve(results);
+                            }, 2000);
+                        });
+                        grecaptcha.enterprise.execute = originalExecute;
+                        return tokenPromise;
+                    };
 
-                // 2. Scan ALL script tags (src and inline) for any sitekey patterns
-                const allScripts = Array.from(document.querySelectorAll('script'));
-                results.scriptSrcs = allScripts
-                    .filter(s => s.src)
-                    .map(s => s.src)
-                    .filter(src => src.includes('recaptcha') || src.includes('google'));
-
-                // 3. Look for sitekey in inline script content
-                const inlineMatches = allScripts
-                    .filter(s => !s.src && s.textContent.includes('recaptcha'))
-                    .map(s => s.textContent.substring(0, 500)); // First 500 chars of each match
-                results.inlineScripts = inlineMatches;
-
-                // 4. Check if grecaptcha object exists and what's on it
-                results.grecaptchaExists = typeof grecaptcha !== 'undefined';
-                results.grecaptchaEnterpriseExists = typeof grecaptcha !== 'undefined' 
-                    && typeof grecaptcha.enterprise !== 'undefined';
-
-                // 5. Look for any hidden inputs related to captcha
-                const hiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'))
-                    .map(i => ({ id: i.id, name: i.name, value: i.value.substring(0, 100) }));
-                results.hiddenInputs = hiddenInputs;
-
-                return results;
+                    // Click submit to trigger the page's natural flow
+                    document.getElementById('submitPayment').click();
+                });
             });
 
-            console.log("Full captcha scan:", JSON.stringify(captchaInfo, null, 2));
 
+            console.log("Submit diagnostic:", JSON.stringify(submitInfo, null, 2));
 
-            // --- MANUAL RECAPTCHA BYPASS ---
-            // Grab the current dynamic URL of the payment page
-            const currentUrl = page.url(); 
-            
-            // Call the custom 2Captcha function
-            const token = await solveRecaptchaManual(currentUrl);
+            // --- RECAPTCHA V3 ENTERPRISE BYPASS ---
+            console.log("Intercepting reCAPTCHA V3 Enterprise token...");
 
-            console.log("Injecting token directly into the SunBiz DOM...");
+            const token = await page.evaluate(() => {
+                return new Promise((resolve, reject) => {
+                    // grecaptcha.enterprise.execute() generates a fresh V3 token
+                    // We call it directly with the sitekey and action
+                    grecaptcha.enterprise.execute('6Le9aJcoAAAAAPcbixT6fXd-GwK9ZVM1I5Q5xGpk', {
+                        action: 'submit_payment_html5'
+                    })
+                    .then(token => resolve(token))
+                    .catch(err => reject(err));
+                });
+            });
+
+            console.log("Token retrieved:", token ? "SUCCESS" : "FAILED");
+
+            // Inject the token into the hidden fields
             await page.evaluate((solvedToken) => {
-                // 1. Inject into the standard hidden reCAPTCHA text area
-                let standardInput = document.getElementById('g-recaptcha-response');
-                if (standardInput) {
-                    standardInput.innerHTML = solvedToken;
+                // Standard g-recaptcha-response field
+                const standard = document.getElementById('g-recaptcha-response');
+                if (standard) {
+                    standard.value = solvedToken;
+                    standard.innerHTML = solvedToken;
                 }
-                
-                // 2. Inject into the specific Enterprise custom input you found in the DOM
-                let customInput = document.getElementById('recaptcha-token');
-                if (customInput) {
-                    customInput.value = solvedToken;
+
+                // NIC USA's custom token field
+                const custom = document.getElementById('recaptcha-token');
+                if (custom) {
+                    custom.value = solvedToken;
+                }
+
+                // Also try PaymentApiToken since it showed up in your hidden inputs
+                const paymentToken = document.getElementById('PaymentApiToken');
+                if (paymentToken) {
+                    paymentToken.value = solvedToken;
                 }
             }, token);
-            // --------------------------------
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            // ------------------------------------
 
             // Wait 2 seconds for the DOM to register the injected values
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -485,7 +446,7 @@ export async function fillSunBizForm(data) {
             console.log("Submitting final payment...");
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), // Added timeout just in case it's slow
-                //page.click("#submitPayment")
+                page.click("#submitPayment")
             ]);
             console.log("Payment submitted and page loaded.");
 
@@ -503,7 +464,7 @@ export async function fillSunBizForm(data) {
             }
 
             console.log("The bot filled everything out. Returning success...");
-            //return "success";
+            return "success";
         }
     } catch (error) {
         const filingError = error.message;
