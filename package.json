@@ -19,6 +19,9 @@
     "express": "^5.2.1",
     "graphql": "^16.12.0",
     "puppeteer": "^24.34.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "us-state-converter": "^1.0.8"
   }
 }

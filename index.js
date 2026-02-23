@@ -15,6 +15,9 @@ app.get("/", (req, res) => {
 });
 
 app.post("/solicitacao-estadual", async (req, res) => {
+    // 1. Immediately send response to Pipefy so it doesn't time out
+    res.status(200).send("Webhook received. SunBiz automation started in the background.");
+    
     var address = "2335 E Atlantic Blvd #300-20";
     var city = "Pompano Beach";
     var zipCode = "33062";
@@ -206,11 +209,20 @@ app.post("/solicitacao-estadual", async (req, res) => {
     };
 
 
-    //Fill out the form, and if it returns a 'success', then call the moveCardToPhase which activates the Make automatioion to move the card to the next phase - WILL CHANGE TO A DIFFERENT PROGRAM
+    // 2. Call the bot to run in the background (no 'await')
     console.log("Filling out SunBiz form now...");
-    if (await fillSunBizForm(completeData) === "success") {
-        console.log("Form completed successfully.");
-    }
+    fillSunBizForm(completeData)
+        .then(result => {
+            if (result === "success") {
+                console.log("Form completed successfully.");
+                // Note: Your future moveCardToPhase(cardID) logic will go right here!
+            } else {
+                console.log(`Bot finished with status: ${result}`);
+            }
+        })
+        .catch(error => {
+            console.error("Background processing encountered an error:", error);
+        });
 })
 
 app.post("/annual-report", async (req, res) => {

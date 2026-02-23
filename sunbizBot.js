@@ -1,5 +1,22 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import RecaptchaPlugin from "puppeteer-extra-plugin-recaptcha";
+
+// Tell puppeteer to use the stealth plugin with default settings
+puppeteer.use(StealthPlugin());
+
+// Configure the recaptcha plugin
+puppeteer.use(
+    RecaptchaPlugin({
+        provider: {
+            id: '2captcha',
+            token: process.env.TWOCAPTCHA_API_KEY // Use an env variable for your key
+        },
+        visualFeedback: true // Colors the CAPTCHA green in the browser once solved
+    })
+);
+
 import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
@@ -75,7 +92,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 15,
+            slowMo: 40,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -101,7 +118,7 @@ export async function fillSunBizForm(data) {
             await page.click('#disclaimer_read');
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[value="Start New Filing"]')
+                page.click('input[value="Start New Filing"]')
             ]);
 
             //Fill in for the date
@@ -231,14 +248,14 @@ export async function fillSunBizForm(data) {
             await Promise.all([
                 //Bot must wait until the network is idle
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[name="submit"]')
+                page.click('input[name="submit"]')
             ]);
 
             //Click continue again to get out of the review page
             //Submit button for the Filing Information Page - #2
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[name="submit"]')
+                page.click('input[name="submit"]')
             ]);
 
             //Popup handling happens automatically with the 'dialog' event listener defined earlier
@@ -308,11 +325,11 @@ export async function fillSunBizForm(data) {
             //Click on Credit Card Payment Button
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[value="Credit Card Payment"]')
+                page.click('input[value="Credit Card Payment"]')
             ]);
 
             await Promise.all([
-                await page.type('#CustomerInfo_FirstName', "Brenno")
+                page.type('#CustomerInfo_FirstName', "Brenno")
             ]);
 
             //Customer Information Section
@@ -325,27 +342,59 @@ export async function fillSunBizForm(data) {
             await page.type('#Email', "info@tbfinancialservice.com");
             await page.click('#bntNextCustomerInfo');
 
-            //Credit card filling section
+            // --- Credit card filling section (with human-like delays) ---
             await page.waitForSelector('#CCCardNumber', { visible: true });
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 100 });
+            
+            // Wait 1 second before typing card number
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 150 });
+            
+            // Wait a moment before selecting expiration
+            await new Promise(resolve => setTimeout(resolve, 800));
             await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
+            await new Promise(resolve => setTimeout(resolve, 500));
             await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
-            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 100});
-            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 100 });
+            
+            // Wait before typing CVV
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 200});
+            
+            // Wait before typing Name
+            await new Promise(resolve => setTimeout(resolve, 900));
+            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 150 });
 
-            //Click the next button to proceed into payment
+            // Wait 2 seconds before clicking the first "Next" button
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Click the next button to validate card (Wait for submit button to appear, NOT navigation)
             await page.click("#bntNextPaymentInfo");
+            await page.waitForSelector('#submitPayment', { visible: true });
+
+            // Wait 3 seconds before clicking the final submit button (Crucial for bypassing bot detection)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // --- RECAPTCHA SOLVER ---
+            console.log("Waiting for 2Captcha to solve the challenge...");
+            const { solved, error } = await page.solveRecaptchas();
+            if (solved) {
+                console.log("CAPTCHA solved successfully!");
+            }
+            if (error) {
+                throw new Error(`2Captcha failed to solve the challenge: ${error}`);
+            }
+            // -------------------------
 
             //Click the Submit Payment Button
-            /*await Promise.all([
-                page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                // This executes a click directly inside the page's DOM
-                page.evaluate(() => document.querySelector('#submitPayment').click())
+            console.log("Submitting final payment...");
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), // Added timeout just in case it's slow
+                page.click("#submitPayment")
             ]);
+            console.log("Payment submitted and page loaded.");
 
             const currentUrl = page.url();
 
-            if (currentUrl.includes("dos.gov.florida/sunbiz/")) {
+            if (currentUrl.includes("dos.fl.gov/sunbiz/")) {
             // If we landed on the home page, something went wrong. 
             // This 'throw' stops the code immediately and sends it to your catch block.
             throw new Error("Payment rejected: SunBiz redirected back to the home page.");
@@ -354,7 +403,7 @@ export async function fillSunBizForm(data) {
                 console.log("Payment successful! Receipt page loaded.");
             } else {
                 throw new Error(`Unexpected page loaded: ${currentUrl}`);
-            }*/
+            }
 
             console.log("The bot filled everything out. Returning success...");
             //return "success";
