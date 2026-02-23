@@ -1,25 +1,74 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import RecaptchaPlugin from "puppeteer-extra-plugin-recaptcha";
 
 // Tell puppeteer to use the stealth plugin with default settings
 puppeteer.use(StealthPlugin());
 
 // Configure the recaptcha plugin
-puppeteer.use(
-    RecaptchaPlugin({
-        provider: {
-            id: '2captcha',
-            token: process.env.TWOCAPTCHA_API_KEY // Use an env variable for your key
-        },
-        visualFeedback: true // Colors the CAPTCHA green in the browser once solved
-    })
-);
+puppeteer.use(StealthPlugin());
 
 import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
+
+async function solveRecaptchaManual(pageUrl) {
+    console.log("sending a 2Captcha request to solve the captcha");
+
+    const createResponse = await axios.post('https://api.2captcha.com/createTask', {
+        "clientKey": process.env.TWOCAPTCHA_API_KEY,
+        "task": {
+            "type": "RecaptchaV2EnterpriseTaskProxyless",
+            "websiteURL": pageUrl,
+            "websiteKey": "6Le9aJcoAAAAAPcbixT6fXd-GwK9ZVM1I5Q5xGpk",
+            "isInvisible": true
+        }
+    },
+    {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    console.log("createTask response:", createResponse.data);
+
+    const taskId = createResponse.data.taskId;
+
+    if(!taskId) {
+        throw new Error(`2Captcha createTask failed: ${JSON.stringify(createResponse.data)}`);
+    }
+
+    console.log(`Task created with ID: ${taskId}. Polling for result...`);
+
+    for (let attempt = 0; attempt < 24; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); //Wait 5 seconds before moving on
+
+        const resultResponse = await axios.post('https://api.2captcha.com/getTaskResult', {
+            "clientKey": process.env.TWOCAPTCHA_API_KEY,
+            "taskId": taskId
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log(`Poll attempt ${attempt + 1}:`, resultResponse.data);
+
+        const { status, solution, errorId, errorCode, cost, errorDescription } = resultResponse.data;
+
+        if(errorId !== 0) {
+            throw new Error(`Error ${errorCode} occurred, with the following description: ${errorDescription}`);
+        }
+
+        if(status == "ready") {
+            console.log(`Captcha solved with the cost of ${cost}! Token received.`);
+            return solution.gRecaptchaResponse;
+        }
+    }
+    //If the status is not changed, and/or error is not received withing 2 minutes, throw a new Error
+    throw new Error("2Captcha timed out: captcha was not solved within 2 minutes.");
+}
 
 let browser = null;
 
@@ -92,7 +141,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 40,
+            slowMo: 5,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -370,39 +419,87 @@ export async function fillSunBizForm(data) {
             await page.click("#bntNextPaymentInfo");
             await page.waitForSelector('#submitPayment', { visible: true });
 
-            // Wait 3 seconds before clicking the final submit button (Crucial for bypassing bot detection)
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            const captchaInfo = await page.evaluate(() => {
+                const results = {};
 
-            // --- RECAPTCHA SOLVER ---
-            console.log("Waiting for 2Captcha to solve the challenge...");
-            const { solved, error } = await page.solveRecaptchas();
-            if (solved) {
-                console.log("CAPTCHA solved successfully!");
-            }
-            if (error) {
-                throw new Error(`2Captcha failed to solve the challenge: ${error}`);
-            }
-            // -------------------------
+                // 1. Check for any element with data-sitekey
+                const sitekeyEl = document.querySelector('[data-sitekey]');
+                results.domSitekey = sitekeyEl ? sitekeyEl.getAttribute('data-sitekey') : null;
+
+                // 2. Scan ALL script tags (src and inline) for any sitekey patterns
+                const allScripts = Array.from(document.querySelectorAll('script'));
+                results.scriptSrcs = allScripts
+                    .filter(s => s.src)
+                    .map(s => s.src)
+                    .filter(src => src.includes('recaptcha') || src.includes('google'));
+
+                // 3. Look for sitekey in inline script content
+                const inlineMatches = allScripts
+                    .filter(s => !s.src && s.textContent.includes('recaptcha'))
+                    .map(s => s.textContent.substring(0, 500)); // First 500 chars of each match
+                results.inlineScripts = inlineMatches;
+
+                // 4. Check if grecaptcha object exists and what's on it
+                results.grecaptchaExists = typeof grecaptcha !== 'undefined';
+                results.grecaptchaEnterpriseExists = typeof grecaptcha !== 'undefined' 
+                    && typeof grecaptcha.enterprise !== 'undefined';
+
+                // 5. Look for any hidden inputs related to captcha
+                const hiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'))
+                    .map(i => ({ id: i.id, name: i.name, value: i.value.substring(0, 100) }));
+                results.hiddenInputs = hiddenInputs;
+
+                return results;
+            });
+
+            console.log("Full captcha scan:", JSON.stringify(captchaInfo, null, 2));
+
+
+            // --- MANUAL RECAPTCHA BYPASS ---
+            // Grab the current dynamic URL of the payment page
+            const currentUrl = page.url(); 
+            
+            // Call the custom 2Captcha function
+            const token = await solveRecaptchaManual(currentUrl);
+
+            console.log("Injecting token directly into the SunBiz DOM...");
+            await page.evaluate((solvedToken) => {
+                // 1. Inject into the standard hidden reCAPTCHA text area
+                let standardInput = document.getElementById('g-recaptcha-response');
+                if (standardInput) {
+                    standardInput.innerHTML = solvedToken;
+                }
+                
+                // 2. Inject into the specific Enterprise custom input you found in the DOM
+                let customInput = document.getElementById('recaptcha-token');
+                if (customInput) {
+                    customInput.value = solvedToken;
+                }
+            }, token);
+            // --------------------------------
+
+            // Wait 2 seconds for the DOM to register the injected values
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             //Click the Submit Payment Button
             console.log("Submitting final payment...");
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), // Added timeout just in case it's slow
-                page.click("#submitPayment")
+                //page.click("#submitPayment")
             ]);
             console.log("Payment submitted and page loaded.");
 
-            const currentUrl = page.url();
+            const urlCheck = page.url();
 
-            if (currentUrl.includes("dos.fl.gov/sunbiz/")) {
+            if (urlCheck.includes("dos.fl.gov/sunbiz/")) {
             // If we landed on the home page, something went wrong. 
             // This 'throw' stops the code immediately and sends it to your catch block.
             throw new Error("Payment rejected: SunBiz redirected back to the home page.");
     
-            } else if (currentUrl.includes("Checkout/Recipt")) {
+            } else if (urlCheck.includes("Checkout/Recipt")) {
                 console.log("Payment successful! Receipt page loaded.");
             } else {
-                throw new Error(`Unexpected page loaded: ${currentUrl}`);
+                throw new Error(`Unexpected page loaded: ${urlCheck}`);
             }
 
             console.log("The bot filled everything out. Returning success...");
