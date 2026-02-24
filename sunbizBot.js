@@ -1,16 +1,14 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
-import puppeteer from "puppeteer-extra";
+import puppeteer from "puppeteer";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 // Tell puppeteer to use the stealth plugin with default settings
-puppeteer.use(StealthPlugin());
-
-// Configure the recaptcha plugin
-puppeteer.use(StealthPlugin());
+//puppeteer.use(StealthPlugin());
 
 import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
+import 'dotenv/config';
 
 function humanDelay(min = 100, max = 350) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -87,7 +85,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 30,
+            slowMo: 80,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -100,13 +98,6 @@ export async function fillSunBizForm(data) {
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
             Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        });
-
-        await page.setExtraHTTPHeaders({
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Connection': 'keep-alive',
         });
 
 
@@ -350,32 +341,27 @@ export async function fillSunBizForm(data) {
             await page.waitForSelector('#CCCardNumber', { visible: true });
             
             // Wait 1 second before typing card number
-            await new Promise(resolve => setTimeout(resolve, 1000));
             await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 200 });
             
             // Wait a moment before selecting expiration
-            await new Promise(resolve => setTimeout(resolve, 800));
             await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
+            //await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
             
             // Wait before typing CVV
-            await new Promise(resolve => setTimeout(resolve, 1200));
             await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 211 });
             
             // Wait before typing Name
-            await new Promise(resolve => setTimeout(resolve, 900));
             await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 199 });
 
             // Wait 2 seconds before clicking the first "Next" button
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Click the next button to validate card (Wait for submit button to appear, NOT navigation)
-            await page.click("#bntNextPaymentInfo");
-            await page.waitForSelector('#submitPayment', { visible: true });
+            //await page.click("#bntNextPaymentInfo");
+            //await page.waitForSelector('#submitPayment', { visible: true });
 
             // Wait 2 seconds for the DOM to register the injected values
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            //await new Promise(resolve => setTimeout(resolve, 2000));
 
             //Click the Submit Payment Button
             console.log("Ready to submit final payment...");
