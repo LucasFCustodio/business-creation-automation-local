@@ -1,8 +1,20 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+// Tell puppeteer to use the stealth plugin with default settings
+puppeteer.use(StealthPlugin());
+
+// Configure the recaptcha plugin
+puppeteer.use(StealthPlugin());
+
 import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
+
+function humanDelay(min = 100, max = 350) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 let browser = null;
 
@@ -75,14 +87,28 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 10,
+            slowMo: 30,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
-                '--disable-autofill-keyboard-accessory-view'
+                '--disable-autofill-keyboard-accessory-view',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ]
         });
         const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+        });
+
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Connection': 'keep-alive',
+        });
+
 
         page.on('dialog', async dialog => {
             console.log("--------------------------------");
@@ -101,7 +127,7 @@ export async function fillSunBizForm(data) {
             await page.click('#disclaimer_read');
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[value="Start New Filing"]')
+                page.click('input[value="Start New Filing"]')
             ]);
 
             //Fill in for the date
@@ -128,6 +154,7 @@ export async function fillSunBizForm(data) {
             await page.type('#princ_zip', data.business.zip);
             await page.type('#princ_cntry', data.business.country);
 
+
             //Mailing Address to be the same as the principal address
             await page.click('#same_addr_flag');
 
@@ -137,7 +164,7 @@ export async function fillSunBizForm(data) {
                 await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
                 await page.type('#ra_city', 'Pompano Beach');
                 await page.type('#ra_zip', '33062');
-                await page.type('#ra_signature', 'Brenno Dias');
+                await page.type('#ra_signature', 'TB FINANCIAL SERVICES');
             }
             else { //If the user wants TB's address, then they are the RA
                 await page.type('#ra_name_last_name', data.owner.lastName);
@@ -157,8 +184,6 @@ export async function fillSunBizForm(data) {
             await page.type('#email_addr_verify', 'info@tbfinancialservice.com');
             await page.type('#signature', data.owner.firstName + " " + data.owner.lastName);
 
-
-
             //Fill in owner's information as someone who is authorized to manage the LLC
             //Fill out name information
             await page.type(`#off1_name_title`, 'MGRM'); //Title
@@ -173,25 +198,51 @@ export async function fillSunBizForm(data) {
             await page.type(`#off1_name_cntry`, data.business.country);
 
             //Fill in Partners section for however many partners there are
+            const partnerType = data.partner.type
             const numberOfPartners = data.partner.numberOfPartners;
-            if(data.partner.lastNameList[0] == ""){
-                console.log("No partners");
+            if(partnerType == "Individuals (Pessoas físicas)") {
+                if(data.partner.lastNameList[0] == "" || data.partner.lastNameList == null){
+                    console.log("No partners");
+                }
+                else {
+                    for (var i = 0; i < numberOfPartners; i++) {
+                        //Fill out name information
+                        await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
+                        await page.type(`#off${i + 2}_name_last_name`, data.partner.lastNameList[i]); //Last name for this partner
+                        await page.type(`#off${i + 2}_name_first_name`, data.partner.firstNameList[i]);
+
+                        //Fill out address information
+                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
+                        await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
+                        await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
+                        console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
+                        await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
+                        await page.type(`#off${i + 2}_name_cntry`, data.partner.country[i]);
+                    }
+                }
+            }
+            else if (partnerType == "Companies (Empresas)") {
+                if(data.partner.firstNameList[0] == "" || data.partner.firstNameList == null) {
+                    console.log("No business partners");
+                }
+                else {
+                    for (var i = 0; i < numberOfPartners; i++) {
+                        //Fill out name information
+                        await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
+                        await page.type(`#off${i + 2}_name_corp_name`, data.partner.firstNameList[i]);
+
+                        //Fill out address information
+                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i], { delay: 161 });
+                        await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
+                        await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
+                        console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
+                        await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
+                        await page.type(`#off${i + 2}_name_cntry`, data.partner.country[i]);
+                    }
+                }
             }
             else {
-                for (var i = 0; i < numberOfPartners; i++) {
-                //Fill out name information
-                await page.type(`#off${i + 2}_name_title`, 'MGRM'); //Title
-                await page.type(`#off${i + 2}_name_last_name`, data.partner.lastNameList[i]); //Last name for this partner
-                await page.type(`#off${i + 2}_name_first_name`, data.partner.firstNameList[i]);
-
-                //Fill out address information
-                await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
-                await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
-                await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
-                console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
-                await page.type(`#off${i + 2}_name_zip`, data.partner.zipCodeList[i]);
-                await page.type(`#off${i + 2}_name_cntry`, data.partner.country);
-                }
+                console.log("no partners");
             }
 
 
@@ -205,22 +256,18 @@ export async function fillSunBizForm(data) {
             await Promise.all([
                 //Bot must wait until the network is idle
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[name="submit"]')
+                page.click('input[name="submit"]')
             ]);
 
             //Click continue again to get out of the review page
             //Submit button for the Filing Information Page - #2
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[name="submit"]')
+                page.click('input[name="submit"]')
             ]);
 
             //Popup handling happens automatically with the 'dialog' event listener defined earlier
             await page.keyboard.press('Enter');
-
-            //Take screenshot of the Online Filing Information
-            const screenshotPath = 'screenshots/result.png';
-            await page.screenshot({ path: screenshotPath });
 
             // --- SEND EMAIL WITH THE TRACKING NUMBER ---
             try {
@@ -282,11 +329,11 @@ export async function fillSunBizForm(data) {
             //Click on Credit Card Payment Button
             await Promise.all([
                 page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                await page.click('input[value="Credit Card Payment"]')
+                page.click('input[value="Credit Card Payment"]')
             ]);
 
             await Promise.all([
-                await page.type('#CustomerInfo_FirstName', "Brenno")
+                page.type('#CustomerInfo_FirstName', "Brenno")
             ]);
 
             //Customer Information Section
@@ -299,21 +346,40 @@ export async function fillSunBizForm(data) {
             await page.type('#Email', "info@tbfinancialservice.com");
             await page.click('#bntNextCustomerInfo');
 
-            //Credit card filling section
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER);
+            // --- Credit card filling section (with human-like delays) ---
+            await page.waitForSelector('#CCCardNumber', { visible: true });
+            
+            // Wait 1 second before typing card number
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 200 });
+            
+            // Wait a moment before selecting expiration
+            await new Promise(resolve => setTimeout(resolve, 800));
             await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
+            await new Promise(resolve => setTimeout(resolve, 500));
             await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
-            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV);
-            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME);
+            
+            // Wait before typing CVV
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 211 });
+            
+            // Wait before typing Name
+            await new Promise(resolve => setTimeout(resolve, 900));
+            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 199 });
 
-            //Click the next button to complete payment
-            //await page.click("#bntNextPaymentInfo");
+            // Wait 2 seconds before clicking the first "Next" button
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            //await browser.close();
+            // Click the next button to validate card (Wait for submit button to appear, NOT navigation)
+            await page.click("#bntNextPaymentInfo");
+            await page.waitForSelector('#submitPayment', { visible: true });
 
-            console.log("The bot filled everything out. Returning success...");
-            return "success";
+            // Wait 2 seconds for the DOM to register the injected values
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            //Click the Submit Payment Button
+            console.log("Ready to submit final payment...");
+            // Replace your submitPayment click with this:
         }
     } catch (error) {
         const filingError = error.message;
@@ -347,13 +413,6 @@ export async function fillSunBizForm(data) {
         
         // Return something so index.js knows it failed
         return "failed"; 
-
-    } finally {
-        // 3. This block ALWAYS runs, error or success
-        if (browser) {
-            console.log("Closing browser...");
-            await browser.close();
-        }
     }
 }
 

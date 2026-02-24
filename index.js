@@ -2,6 +2,8 @@ import express from "express";
 import 'dotenv/config';
 import dateFormat, { masks } from "dateformat";
 import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
+import report from "./annual-report.js";
+import states from "us-state-converter";
 
 const app = express();
 const PORT = 3000;
@@ -12,12 +14,14 @@ app.get("/", (req, res) => {
     res.send("The port is working")
 });
 
-var address = "2335 E Atlantic Blvd #300-20";
-var city = "Pompano Beach";
-var zipCode = "33062";
-var country = "USA";
-
 app.post("/solicitacao-estadual", async (req, res) => {
+    // 1. Immediately send response to Pipefy so it doesn't time out
+    res.status(200).send("Webhook received. SunBiz automation started in the background.");
+    
+    var address = "2335 E Atlantic Blvd #300-20";
+    var city = "Pompano Beach";
+    var zipCode = "33062";
+    var country = "US";
     const data = req.body;
     console.log("Received data:", data);
     const rushProcess = data["rushProcess"];
@@ -80,33 +84,80 @@ app.post("/solicitacao-estadual", async (req, res) => {
 
 
     //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
-    const partnerFirstNameString = data["partnerFirstName"];
-    const partnerFirstNameList = partnerFirstNameString.split(", ");
-    const partnerLastNameString = data["partnerLastName"];
-    const partnerLastNameList = partnerLastNameString.split(", ");
-    const numberOfPartners = partnerFirstNameList.length;
+    var partnerType = data["partnerType"];
+    var partnerFirstNameString;
+    var partnerFirstNameList;
+    var partnerLastNameString;
+    var partnerLastNameList;
+    var numberOfPartners;
 
-    console.log("This is the number of partners: " + numberOfPartners);
+    var partnerAddressNumberString;
+    var partnerStreetNameString;
+    var partnerCityString;
+    var partnerStateString;
+    var partnerZipCodeString;
+    var partnerCountryString;
 
-    //Physical Partner Address Section - Have a list of partner addresses
-    const partnerAddressNumberString = data["partnerAddressNumber"];
-    const partnerStreetNameString = data["partnerStreetName"];
-    const partnerCityString = data["partnerCity"];
-    const partnerStateString = data["partnerState"];
-    const partnerZipCodeString = data["partnerZipCode"];
-    const partnerCountryString = data["partnerCountry"];
+    var partnerAddressNumberList;
+    var partnerStreetNameList;
+    var partnerCityList;
+    var partnerStateList;
+    var partnerZipCodeList;
+    var partnerCountryList;
+
+    if (partnerType == "Individuals (Pessoas físicas)") {
+        //Physical Partner Name Section
+        partnerFirstNameString = data["partnerFirstName"];
+        partnerFirstNameList = partnerFirstNameString.split(", ");
+        partnerLastNameString = data["partnerLastName"];
+        partnerLastNameList = partnerLastNameString.split(", ");
+        numberOfPartners = partnerFirstNameList.length;
+
+        console.log("This is the number of partners: " + numberOfPartners);
+
+        //Physical Partner Address Section - Have a list of partner addresses
+        partnerAddressNumberString = data["partnerAddressNumber"];
+        partnerStreetNameString = data["partnerStreetName"];
+        partnerCityString = data["partnerCity"];
+        partnerStateString = data["partnerState"];
+        partnerZipCodeString = data["partnerZipCode"];
+        partnerCountryString = data["partnerCountry"];
     
-    const partnerAddressNumberList = partnerAddressNumberString.split(", ");
-    const partnerStreetNameList = partnerStreetNameString.split(", ");
-    const partnerCityList = partnerCityString.split(", ");
-    const partnerStateList = partnerStateString.split(", ");
-    const partnerZipCodeList = partnerZipCodeString.split(", ");
-    const partnerCountryList = partnerCountryString.split(", ");
+        partnerAddressNumberList = partnerAddressNumberString.split(", ");
+        partnerStreetNameList = partnerStreetNameString.split(", ");
+        partnerCityList = partnerCityString.split(", ");
+        partnerStateList = partnerStateString.split(", ");
+        partnerZipCodeList = partnerZipCodeString.split(", ");
+        partnerCountryList = partnerCountryString.split(", ");
+    }
+    else if (data["partnerType"] == "Companies (Empresas)") {
+        //Business Partner Name Section - Have a list of businmess partner names
+        partnerFirstNameString = data["businessPartnerName"];
+        partnerFirstNameList = partnerFirstNameString.split(", ");
+        numberOfPartners = partnerFirstNameList.length;
 
+        console.log("This is the number of business partners: " + numberOfPartners);
 
-    //Business Partner Name Section - Have a list of businmess partner names
+        //Business Partner Address Section - Have a list of business partner addresses
+        partnerAddressNumberString = data["businessPartnerAddressNumber"];
+        partnerStreetNameString = data["businessPartnerStreetName"];
+        partnerCityString = data["businessPartnerCity"];
+        partnerStateString = data["businessPartnerState"];
+        partnerZipCodeString = data["businessPartnerZipCode"];
+        partnerCountryString = data["businessPartnerCountry"];
+    
+        partnerAddressNumberList = partnerAddressNumberString.split(", ");
+        partnerStreetNameList = partnerStreetNameString.split(", ");
+        partnerCityList = partnerCityString.split(", ");
+        partnerStateList = partnerStateString.split(", ");
+        partnerZipCodeList = partnerZipCodeString.split(", ");
+        partnerCountryList = partnerCountryString.split(", ");
+    }
+    else {
+        numberOfPartners = 0;
+    }
 
-    //Business Partner Address Section - Have a list of business partner addresses
+    
 
 
     //Store everything into completeData variable, and call the SunBiz function
@@ -137,6 +188,7 @@ app.post("/solicitacao-estadual", async (req, res) => {
             email: ownerEmail
         },
         partner: {
+            type: partnerType,
             numberOfPartners: numberOfPartners,
             firstNameList: partnerFirstNameList,
             lastNameList: partnerLastNameList,
@@ -157,11 +209,71 @@ app.post("/solicitacao-estadual", async (req, res) => {
     };
 
 
-    //Fill out the form, and if it returns a 'success', then call the moveCardToPhase which activates the Make automatioion to move the card to the next phase - WILL CHANGE TO A DIFFERENT PROGRAM
+    // 2. Call the bot to run in the background (no 'await')
     console.log("Filling out SunBiz form now...");
-    if (await fillSunBizForm(completeData) === "success") {
-        console.log("Form completed successfully.");
+    fillSunBizForm(completeData)
+        .then(result => {
+            if (result === "success") {
+                console.log("Form completed successfully.");
+                // Note: Your future moveCardToPhase(cardID) logic will go right here!
+            } else {
+                console.log(`Bot finished with status: ${result}`);
+            }
+        })
+        .catch(error => {
+            console.error("Background processing encountered an error:", error);
+        });
+})
+
+app.post("/annual-report", async (req, res) => {
+    const data = req.body;
+
+    //Default TB Address
+    var address = "2335 E Atlantic Blvd #300-20";
+    var city = "Pompano Beach";
+    var zipCode = "33062";
+    var country = "US";
+
+    //Business Information
+    var businessState = data["state"];
+    var abbrevState = states.abbr(businessState);
+    var businessName = data["businessName"];
+    var useTbAddress = data["tbAddress"];
+    var changeAddress = data["changeAddress"];
+
+    //Physical Partner Name Section - Have a list of partner first names and last names - MIGHT CHANGE
+    var partnerType = "Individuals (Pessoas físicas)";
+    const partnerFirstNameString = data["partnerFirstName"];
+    const partnerFirstNameList = partnerFirstNameString.split(", ");
+    const partnerLastNameString = data["partnerLastName"];
+    const partnerLastNameList = partnerLastNameString.split(", ");
+    const numberOfPartners = partnerFirstNameList.length;
+
+    console.log("This is the number of partners: " + numberOfPartners);
+
+    const completeData = {
+        business: {
+            name: businessName,
+            address: address,
+            city: city,
+            zip: zipCode,
+            state: businessState,
+            abbrevState: abbrevState,
+            country: country
+        },
+        checks: {
+            tbAddress: useTbAddress,
+            changeAddress: changeAddress
+        },
+        partner: {
+            type: partnerType,
+            numberOfPartners: numberOfPartners,
+            firstNameList: partnerFirstNameList,
+            lastNameList: partnerLastNameList,
+        }
     }
+
+    report(completeData);
 })
 
 
