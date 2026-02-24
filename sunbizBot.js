@@ -1,18 +1,12 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
 import puppeteer from "puppeteer";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 // Tell puppeteer to use the stealth plugin with default settings
 //puppeteer.use(StealthPlugin());
 
-import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
 import 'dotenv/config';
-
-function humanDelay(min = 100, max = 350) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 let browser = null;
 
@@ -85,7 +79,7 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 80,
+            slowMo: 30,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
@@ -94,12 +88,6 @@ export async function fillSunBizForm(data) {
             ]
         });
         const page = await browser.newPage();
-        await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        });
-
 
         page.on('dialog', async dialog => {
             console.log("--------------------------------");
