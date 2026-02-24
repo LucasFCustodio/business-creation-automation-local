@@ -12,6 +12,10 @@ import states from "us-state-converter";
 import axios from "axios";
 import emailjs from "@emailjs/nodejs";
 
+function humanDelay(min = 100, max = 350) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 let browser = null;
 
 export async function fillSunBizForm(data) {
@@ -83,14 +87,28 @@ export async function fillSunBizForm(data) {
 
             browser = await puppeteer.launch({
             headless: false,
-            slowMo: 20,
+            slowMo: 30,
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
-                '--disable-autofill-keyboard-accessory-view'
+                '--disable-autofill-keyboard-accessory-view',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ]
         });
         const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+        });
+
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Connection': 'keep-alive',
+        });
+
 
         page.on('dialog', async dialog => {
             console.log("--------------------------------");
@@ -136,6 +154,7 @@ export async function fillSunBizForm(data) {
             await page.type('#princ_zip', data.business.zip);
             await page.type('#princ_cntry', data.business.country);
 
+
             //Mailing Address to be the same as the principal address
             await page.click('#same_addr_flag');
 
@@ -164,8 +183,6 @@ export async function fillSunBizForm(data) {
             await page.type('#ret_email_addr', 'info@tbfinancialservice.com');
             await page.type('#email_addr_verify', 'info@tbfinancialservice.com');
             await page.type('#signature', data.owner.firstName + " " + data.owner.lastName);
-
-
 
             //Fill in owner's information as someone who is authorized to manage the LLC
             //Fill out name information
@@ -215,7 +232,7 @@ export async function fillSunBizForm(data) {
                         await page.type(`#off${i + 2}_name_corp_name`, data.partner.firstNameList[i]);
 
                         //Fill out address information
-                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i]);
+                        await page.type(`#off${i + 2}_name_addr1`, data.partner.addressNumberList[i] + " " + data.partner.streetNameList[i], { delay: 161 });
                         await page.type(`#off${i + 2}_name_city`, data.partner.cityList[i]);
                         await page.type(`#off${i + 2}_name_st`, data.partner.stateList[i]);
                         console.log(`State for Partner ${i}: ${data.partner.stateList[i]}`);
@@ -251,10 +268,6 @@ export async function fillSunBizForm(data) {
 
             //Popup handling happens automatically with the 'dialog' event listener defined earlier
             await page.keyboard.press('Enter');
-
-            //Take screenshot of the Online Filing Information
-            const screenshotPath = 'screenshots/result.png';
-            await page.screenshot({ path: screenshotPath });
 
             // --- SEND EMAIL WITH THE TRACKING NUMBER ---
             try {
@@ -338,7 +351,7 @@ export async function fillSunBizForm(data) {
             
             // Wait 1 second before typing card number
             await new Promise(resolve => setTimeout(resolve, 1000));
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 150 });
+            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 200 });
             
             // Wait a moment before selecting expiration
             await new Promise(resolve => setTimeout(resolve, 800));
@@ -348,11 +361,11 @@ export async function fillSunBizForm(data) {
             
             // Wait before typing CVV
             await new Promise(resolve => setTimeout(resolve, 1200));
-            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 200});
+            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 211 });
             
             // Wait before typing Name
             await new Promise(resolve => setTimeout(resolve, 900));
-            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 150 });
+            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 199 });
 
             // Wait 2 seconds before clicking the first "Next" button
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -361,110 +374,12 @@ export async function fillSunBizForm(data) {
             await page.click("#bntNextPaymentInfo");
             await page.waitForSelector('#submitPayment', { visible: true });
 
-
-            // --- DIAGNOSE SUBMIT HANDLER ---
-            const submitInfo = await page.evaluate(() => {
-                return new Promise((resolve) => {
-                    const results = {};
-        
-                    // Spy on the execute call
-                    const originalExecute = grecaptcha.enterprise.execute.bind(grecaptcha.enterprise);
-                    grecaptcha.enterprise.execute = function(sitekey, options) {
-                        results.action = options?.action;
-                        results.sitekey = sitekey;
-                        const tokenPromise = originalExecute(sitekey, options);
-                        tokenPromise.then(token => {
-                            results.tokenGenerated = token ? true : false;
-                            results.tokenPrefix = token ? token.substring(0, 20) : null;
-                
-                            // Check what fields get populated AFTER token is generated
-                            setTimeout(() => {
-                                results.gRecaptchaValue = document.getElementById('g-recaptcha-response')?.value?.substring(0, 20) || null;
-                                results.recaptchaTokenValue = document.getElementById('recaptcha-token')?.value?.substring(0, 20) || null;
-                                results.paymentApiTokenValue = document.getElementById('PaymentApiToken')?.value?.substring(0, 20) || null;
-                                resolve(results);
-                            }, 2000);
-                        });
-                        grecaptcha.enterprise.execute = originalExecute;
-                        return tokenPromise;
-                    };
-
-                    // Click submit to trigger the page's natural flow
-                    document.getElementById('submitPayment').click();
-                });
-            });
-
-
-            console.log("Submit diagnostic:", JSON.stringify(submitInfo, null, 2));
-
-            // --- RECAPTCHA V3 ENTERPRISE BYPASS ---
-            console.log("Intercepting reCAPTCHA V3 Enterprise token...");
-
-            const token = await page.evaluate(() => {
-                return new Promise((resolve, reject) => {
-                    // grecaptcha.enterprise.execute() generates a fresh V3 token
-                    // We call it directly with the sitekey and action
-                    grecaptcha.enterprise.execute('6Le9aJcoAAAAAPcbixT6fXd-GwK9ZVM1I5Q5xGpk', {
-                        action: 'submit_payment_html5'
-                    })
-                    .then(token => resolve(token))
-                    .catch(err => reject(err));
-                });
-            });
-
-            console.log("Token retrieved:", token ? "SUCCESS" : "FAILED");
-
-            // Inject the token into the hidden fields
-            await page.evaluate((solvedToken) => {
-                // Standard g-recaptcha-response field
-                const standard = document.getElementById('g-recaptcha-response');
-                if (standard) {
-                    standard.value = solvedToken;
-                    standard.innerHTML = solvedToken;
-                }
-
-                // NIC USA's custom token field
-                const custom = document.getElementById('recaptcha-token');
-                if (custom) {
-                    custom.value = solvedToken;
-                }
-
-                // Also try PaymentApiToken since it showed up in your hidden inputs
-                const paymentToken = document.getElementById('PaymentApiToken');
-                if (paymentToken) {
-                    paymentToken.value = solvedToken;
-                }
-            }, token);
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // ------------------------------------
-
             // Wait 2 seconds for the DOM to register the injected values
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             //Click the Submit Payment Button
-            console.log("Submitting final payment...");
-            await Promise.all([
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), // Added timeout just in case it's slow
-                page.click("#submitPayment")
-            ]);
-            console.log("Payment submitted and page loaded.");
-
-            const urlCheck = page.url();
-
-            if (urlCheck.includes("dos.fl.gov/sunbiz/")) {
-            // If we landed on the home page, something went wrong. 
-            // This 'throw' stops the code immediately and sends it to your catch block.
-            throw new Error("Payment rejected: SunBiz redirected back to the home page.");
-    
-            } else if (urlCheck.includes("Checkout/Recipt")) {
-                console.log("Payment successful! Receipt page loaded.");
-            } else {
-                throw new Error(`Unexpected page loaded: ${urlCheck}`);
-            }
-
-            console.log("The bot filled everything out. Returning success...");
-            return "success";
+            console.log("Ready to submit final payment...");
+            // Replace your submitPayment click with this:
         }
     } catch (error) {
         const filingError = error.message;
@@ -498,13 +413,6 @@ export async function fillSunBizForm(data) {
         
         // Return something so index.js knows it failed
         return "failed"; 
-
-    } finally {
-        // 3. This block ALWAYS runs, error or success
-        if (browser) {
-            console.log("Closing browser...");
-            //await browser.close();
-        }
     }
 }
 
