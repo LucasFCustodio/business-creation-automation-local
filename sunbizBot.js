@@ -1,8 +1,9 @@
 //This file receives data from the server (index.js), and uses it to fill out the SunBiz form.
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 // Tell puppeteer to use the stealth plugin with default settings
-//puppeteer.use(StealthPlugin());
+puppeteer.use(StealthPlugin());
 
 import emailjs from "@emailjs/nodejs";
 import 'dotenv/config';
@@ -79,11 +80,11 @@ export async function fillSunBizForm(data) {
             browser = await puppeteer.launch({
             headless: false,
             slowMo: 30,
+            channel: 'chrome',
             args: [
                 '--disable-features=AutofillAddressEnabled',
                 '--disable-offer-store-unmasked-wallet-cards',
                 '--disable-autofill-keyboard-accessory-view',
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ]
         });
         const page = await browser.newPage();
