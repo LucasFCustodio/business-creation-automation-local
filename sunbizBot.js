@@ -4,7 +4,6 @@ import puppeteer from "puppeteer";
 // Tell puppeteer to use the stealth plugin with default settings
 //puppeteer.use(StealthPlugin());
 
-import axios from "axios";
 import emailjs from "@emailjs/nodejs";
 import 'dotenv/config';
 
@@ -143,7 +142,7 @@ export async function fillSunBizForm(data) {
                 await page.type('#ra_addr1', "2335 E Atlantic Blvd #300-20");
                 await page.type('#ra_city', 'Pompano Beach');
                 await page.type('#ra_zip', '33062');
-                await page.type('#ra_signature', 'TB FINANCIAL SERVICES');
+                await page.type('#ra_signature', 'Brenno Dias');
             }
             else { //If the user wants TB's address, then they are the RA
                 await page.type('#ra_name_last_name', data.owner.lastName);
@@ -305,55 +304,8 @@ export async function fillSunBizForm(data) {
                 await page.click('input[name="submit"]')
             ]);
 
-            //Click on Credit Card Payment Button
-            await Promise.all([
-                page.waitForNavigation({ waitUntil: 'networkidle2' }),
-                page.click('input[value="Credit Card Payment"]')
-            ]);
-
-            await Promise.all([
-                page.type('#CustomerInfo_FirstName', "Brenno")
-            ]);
-
-            //Customer Information Section
-            await page.type('#CustomerInfo_LastName', "Dias");
-            await page.type('#CustomerInfo_Address1', "2335 E Atlantic Blvd");
-            await page.type('#CustomerInfo_City', "Pompano Beach");
-            await page.select('#CustomerInfo_State', 'FL');
-            await page.type('#CustomerInfo_Zip', "33062");
-            await page.type('#Phone', "(954) 868-3825");
-            await page.type('#Email', "info@tbfinancialservice.com");
-            await page.click('#bntNextCustomerInfo');
-
-            // --- Credit card filling section (with human-like delays) ---
-            await page.waitForSelector('#CCCardNumber', { visible: true });
-            
-            // Wait 1 second before typing card number
-            await page.type('#CCCardNumber', process.env.CREDIT_CARD_NUMBER, { delay: 200 });
-            
-            // Wait a moment before selecting expiration
-            await page.select('#CCExpirationMonth', process.env.CREDIT_CARD_EXPIRATION_MONTH);
-            //await page.select('#CCExpirationYear', process.env.CREDIT_CARD_EXPIRATION_YEAR);
-            
-            // Wait before typing CVV
-            await page.type('#CCCardCVV', process.env.CREDIT_CARD_CVV, { delay: 211 });
-            
-            // Wait before typing Name
-            await page.type('#CCNameOnCard', process.env.CREDIT_CARD_NAME, { delay: 199 });
-
-            // Wait 2 seconds before clicking the first "Next" button
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Click the next button to validate card (Wait for submit button to appear, NOT navigation)
-            //await page.click("#bntNextPaymentInfo");
-            //await page.waitForSelector('#submitPayment', { visible: true });
-
-            // Wait 2 seconds for the DOM to register the injected values
-            //await new Promise(resolve => setTimeout(resolve, 2000));
-
-            //Click the Submit Payment Button
             console.log("Ready to submit final payment...");
-            // Replace your submitPayment click with this:
+            
         }
     } catch (error) {
         const filingError = error.message;
@@ -388,15 +340,4 @@ export async function fillSunBizForm(data) {
         // Return something so index.js knows it failed
         return "failed"; 
     }
-}
-
-export async function moveCardToPhase(cardID) {
-    axios.get('https://hook.us2.make.com/9vre3y1ew9bk44wsfudg35g9xo3ena6a', {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            params: {
-                'cardID': cardID
-            }
-        })
 }

@@ -1,7 +1,7 @@
 import express from "express";
 import 'dotenv/config';
 import dateFormat, { masks } from "dateformat";
-import { fillSunBizForm, moveCardToPhase } from "./sunbizBot.js";
+import { fillSunBizForm} from "./sunbizBot.js";
 import report from "./annual-report.js";
 import states from "us-state-converter";
 
