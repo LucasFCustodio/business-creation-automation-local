@@ -11,4 +11,12 @@ const io = new Server(expressServer, {
 //Set up io connection
 io.on('connection', (socket) => {
     console.log('a user connected');
+
+    setTimeout(() => {
+        console.log("Simulating Pipefy Webhook");
+        io.emit("incoming-request", {
+            jobId: '01',
+            businessName: 'Test Business'
+        }, 3000);
+    })
 })
