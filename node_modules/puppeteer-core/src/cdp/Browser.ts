@@ -378,6 +378,7 @@ export class CdpBrowser extends BrowserBase {
       windowState: windowBounds?.windowState,
       // Works around crbug.com/454825274.
       newWindow: hasTargets && options?.type === 'window' ? true : undefined,
+      background: options?.background,
     });
     const target = (await this.waitForTarget(t => {
       return (t as CdpTarget)._targetId === targetId;
@@ -430,6 +431,13 @@ export class CdpBrowser extends BrowserBase {
       );
     }
     return page;
+  }
+
+  async _hasDevToolsTarget(pageTargetId: string): Promise<string | undefined> {
+    const response = await this.#connection.send('Target.getDevToolsTarget', {
+      targetId: pageTargetId,
+    });
+    return response.targetId;
   }
 
   override async installExtension(path: string): Promise<string> {
