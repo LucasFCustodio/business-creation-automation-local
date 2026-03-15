@@ -8,7 +8,7 @@ socket.on("connect", () => {
 })
 
 socket.on('incoming-request', (data) => {
-    console.log(`Received new request for business: ${data.businessName}`);
+    console.log(`Received new request for ${data.businessName}, with job id ${data.jobId}`);
 
     // Trigger the native OS notification
     notifier.notify({
@@ -16,7 +16,27 @@ socket.on('incoming-request', (data) => {
         message: `${data.businessName} is ready. Click to claim!`,
         sound: true,  // Plays the default system notification sound
         wait: true    // Keeps the Node process waiting for a click interaction
-    });
+        },
+        (error, response, metadata) => {
+            if (response === 'ok' || (metadata && metadata.activationType === 'clicked')) {
+                console.log("Notification clicked. Attempting to accept the job")
+                socket.emit("accept-job", { jobId: data.jobId });
+            }
+            else {
+                console.log("Notification dismissed or failed to display");
+            }
+        }
+    );
+});
+
+socket.on("job-success", (data) => {
+    //This socket will receive the business data, and the bot will begin the application on their desktop
+    console.log("Success! The job will start in your computer");
+});
+
+socket.on("job-fail", (data) => {
+    //This socket will not receive any data, since another desktop already accepted the job, and their socket already received the information
+    console.log(('Another worker already accepted the job request'));
 });
 
 socket.on("connect.error", (err) => {
