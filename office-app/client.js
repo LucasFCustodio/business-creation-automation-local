@@ -39,6 +39,6 @@ socket.on("job-fail", (data) => {
     console.log(('Another worker already accepted the job request'));
 });
 
-socket.on("connect.error", (err) => {
+socket.on("connect_error", (err) => {
     console.log("connection error: ", err);
 })
