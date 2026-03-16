@@ -18,21 +18,51 @@ let jobs = [];
 app.get("/test-webhook", (req, res) => {
     console.log("Simulating Pipefy Webhook...");
 
+    // 1. Create fake data perfectly formatted for your bot
+    const mockPayload = {
+        cardInfo: { ID: "12345" },
+        effectiveDate: { day: "15", month: "03", year: "2026" },
+        business: {
+            name: "Race Test LLC",
+            type: "LLC",
+            address: "123 Test St",
+            city: "Miami",
+            state: "FL",
+            zip: "33101",
+            country: "USA"
+        },
+        owner: {
+            firstName: "John",
+            lastName: "Doe",
+            signature: "John Doe",
+            phoneNumber: "555-0199",
+            email: "test@test.com"
+        },
+        partner: {
+            type: "Individuals (Pessoas físicas)",
+            numberOfPartners: 0 // Keeping it 0 for a quick test
+        },
+        general: { email: "info@tbfinancialservice.com" },
+        checks: { rushProcess: "No", tbAddress: "Yes" }
+    };
+
+    // 2. Package it exactly like the real webhook does
     let job = {
         jobId: `job_${Date.now()}`, 
-        businessName: 'Race Test LLC'
+        businessName: mockPayload.business.name,
+        payload: mockPayload // <-- This is what saves the bot from crashing!
     }
     
-    jobs.push(job); // Add it to the active list
+    jobs.push(job); 
 
-    // Broadcast to ALL connected clients
+    // 3. Broadcast to the workers
     io.emit("incoming-request", { 
         jobId: job.jobId, 
         businessName: job.businessName 
     });
 
     res.send("Job broadcasted to all workers!");
-})
+});
 
 
 
