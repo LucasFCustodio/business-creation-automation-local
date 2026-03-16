@@ -1,5 +1,6 @@
 import { io } from "socket.io-client";
 import notifier from 'node-notifier';
+import { fillSunBizForm } from "./llc-opening.js"; // Updated filename!
 
 const socket = io('http://localhost:8000');
 
@@ -32,6 +33,7 @@ socket.on('incoming-request', (data) => {
 socket.on("job-success", (data) => {
     //This socket will receive the business data, and the bot will begin the application on their desktop
     console.log("Success! The job will start in your computer");
+    fillSunBizForm(data.payload);
 });
 
 socket.on("job-fail", (data) => {
